@@ -1,0 +1,254 @@
+// Synapse — proof-of-concept schema
+// Default: SQLite file (no server). For production Postgres, switch provider + URL — see README.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  ADMIN
+  PRODUCER
+  HOST
+  PLAYER
+}
+
+enum EventStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  COMPLETED
+  ARCHIVED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String
+  name          String?
+  image         String?
+  role          Role      @default(PLAYER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile Profile?
+
+  hostedEvents   Event[] @relation("EventHost")
+  producedEvents Event[] @relation("EventProducer")
+
+  hostedSeries   RecurrenceSeries[] @relation("SeriesHost")
+  producedSeries RecurrenceSeries[] @relation("SeriesProducer")
+
+  chatMessages ChatMessage[]
+
+  notificationPref NotificationPreference?
+  subscriptions    SubscriptionPlaceholder[]
+
+  homepageBlocksCreated HomepageBlock[] @relation("HomepageBlockAuthor")
+
+  eventAttendances EventAttendance[]
+}
+
+model Profile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String?
+  bio         String?
+}
+
+model RecurrenceSeries {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?
+  /// JSON: { frequency, byWeekday, interval, timeLocal, timezone, label }
+  ruleJson    String
+  hostId      String
+  host        User     @relation("SeriesHost", fields: [hostId], references: [id])
+  producerId  String?
+  producer    User?    @relation("SeriesProducer", fields: [producerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events Event[]
+}
+
+model Event {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  title            String
+  shortDescription String
+  longDescription  String?
+  startAt          DateTime
+  endAt            DateTime
+  /// IANA zone for display copy (actual instants are UTC in DB)
+  timezone         String   @default("America/New_York")
+
+  /// Persisted workflow state
+  status         EventStatus
+  /// When set, effective status uses this instead of time-based inference (except CANCELLED/ARCHIVED guardrails)
+  statusOverride EventStatus?
+
+  hostId     String
+  host       User   @relation("EventHost", fields: [hostId], references: [id])
+  producerId String?
+  producer   User?  @relation("EventProducer", fields: [producerId], references: [id])
+
+  platformName    String?
+  externalUrl     String?
+  /// Trivia/game/tool iframe (optional) — distinct from host video broadcast.
+  embedUrl        String?
+  /// Live video for Synapse viewers. Native path: Daily.co room URL (see `src/lib/synapse-video.ts`). Override: other iframe-safe URLs.
+  broadcastEmbedUrl String?
+  /// When true, the video iframe is shown only to the event host (and admin / assigned producer), not to anonymous viewers or other players.
+  broadcastHostOnlyJoin Boolean @default(false)
+  /// When true (default), Daily embeds use meeting tokens: only the event host can send video/audio; everyone else is watch-only. When false, everyone gets the plain room URL (open participation).
+  broadcastStreamingMode Boolean @default(true)
+  integrationType String?
+  instructions    String?
+
+  coverImageUrl  String?
+  bannerImageUrl String?
+  replayUrl      String?
+  resultsSummary String?
+
+  recurrenceSeriesId String?
+  recurrenceSeries   RecurrenceSeries? @relation(fields: [recurrenceSeriesId], references: [id])
+  recurrenceNote     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  archiveEntries     ArchiveEntry[]
+  chatMessages       ChatMessage[]
+  attendees          EventAttendance[]
+  featuredAsSiteLive SiteSettings?    @relation("SiteFeaturedLive")
+}
+
+/// Logged-in users who tapped “Join” on an event (RSVP-style).
+model EventAttendance {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+}
+
+model ArchiveEntry {
+  id           String    @id @default(cuid())
+  eventId      String?
+  event        Event?    @relation(fields: [eventId], references: [id])
+  title        String
+  description  String?
+  videoUrl     String?
+  embedHtml    String?
+  thumbnailUrl String?
+  externalUrl  String?
+  publishedAt  DateTime  @default(now())
+  featured     Boolean   @default(false)
+  slug         String    @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+/// Singleton row id = "default"
+model SiteSettings {
+  id       String @id @default("default")
+  siteName String @default("Synapse")
+  tagline  String?
+
+  featuredLiveEventId String? @unique
+  featuredLiveEvent   Event?  @relation("SiteFeaturedLive", fields: [featuredLiveEventId], references: [id])
+
+  heroTitle    String?
+  heroSubtitle String?
+  /// Demo / non-production payment mode label for UI
+  billingMode  String @default("demo")
+
+  updatedAt DateTime @updatedAt
+}
+
+model HomepageBlock {
+  id        String   @id @default(cuid())
+  sortOrder Int      @default(0)
+  title     String
+  /// upcoming | archive | custom_events
+  blockType String
+  /// JSON string array of event IDs when blockType = custom_events
+  payload   String?
+  createdById String?
+  createdBy   User?   @relation("HomepageBlockAuthor", fields: [createdById], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  /// Guest handle when userId is null
+  guestName String?
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model NotificationPreference {
+  id                 String  @id @default(cuid())
+  userId             String  @unique
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailReminders     Boolean @default(true)
+  welcomeEmailSent   Boolean @default(false)
+  reminderMinutesBefore Int @default(30)
+}
+
+model NotificationOutbox {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  payload   String
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model SubscriptionPlaceholder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier      String
+  status    String
+  demoNote  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TicketOrderPlaceholder {
+  id          String   @id @default(cuid())
+  eventId     String?
+  userId      String?
+  amountCents Int      @default(0)
+  currency    String   @default("USD")
+  status      String   @default("demo_pending")
+  externalRef String?
+  createdAt   DateTime @default(now())
+}
+
+model Asset {
+  id        String   @id @default(cuid())
+  path      String
+  mimeType  String
+  bytes     Int
+  createdAt DateTime @default(now())
+}
