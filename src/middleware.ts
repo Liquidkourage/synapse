@@ -1,42 +1,41 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/auth";
 
 /**
- * Edge-safe: no Prisma / better-sqlite3. Role comes from the JWT (see auth.ts callbacks).
+ * Use NextAuth's `auth()` wrapper so the session is resolved like server components.
+ * `getToken({ secret })` in Edge often sees an empty AUTH_SECRET at build time, so JWTs
+ * never verify on Railway — logged-in users look anonymous to middleware.
  */
-export async function middleware(request: NextRequest) {
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-  });
-
-  const path = request.nextUrl.pathname;
-  const role = token?.role as string | undefined;
+export default auth((req) => {
+  const path = req.nextUrl.pathname;
+  const role = req.auth?.user?.role;
+  const isLoggedIn = !!req.auth?.user;
 
   if (path.startsWith("/admin")) {
     if (role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/login?callbackUrl=/admin", request.url));
+      return NextResponse.redirect(new URL("/login?callbackUrl=/admin", req.url));
     }
   }
   if (path.startsWith("/producer")) {
     if (role !== "PRODUCER" && role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/login?callbackUrl=/producer", request.url));
+      return NextResponse.redirect(new URL("/login?callbackUrl=/producer", req.url));
     }
   }
   if (path.startsWith("/host")) {
     if (role !== "HOST" && role !== "PRODUCER" && role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/login?callbackUrl=/host", request.url));
+      return NextResponse.redirect(new URL("/login?callbackUrl=/host", req.url));
     }
   }
   if (path.startsWith("/account") || path.startsWith("/dashboard")) {
-    if (!token) {
-      return NextResponse.redirect(new URL(`/login?callbackUrl=${encodeURIComponent(path)}`, request.url));
+    if (!isLoggedIn) {
+      return NextResponse.redirect(
+        new URL(`/login?callbackUrl=${encodeURIComponent(path)}`, req.url),
+      );
     }
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
