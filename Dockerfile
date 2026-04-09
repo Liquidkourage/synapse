@@ -10,6 +10,9 @@ RUN apt-get update -y \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
+# postinstall runs `prisma generate` — schema must exist before npm ci
+COPY prisma ./prisma
+COPY prisma.config.ts ./prisma.config.ts
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
