@@ -16,6 +16,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
     error: "/auth/error",
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        if (new URL(url).origin === new URL(baseUrl).origin) return url;
+      } catch {
+        /* ignore malformed */
+      }
+      return baseUrl;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id!;

@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { safeCallbackUrl } from "@/lib/safe-callback-url";
 
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
@@ -25,7 +26,8 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           setErr("Invalid credentials.");
           return;
         }
-        router.push(callbackUrl);
+        const next = safeCallbackUrl(callbackUrl, window.location.origin);
+        router.push(next);
         router.refresh();
       }}
     >

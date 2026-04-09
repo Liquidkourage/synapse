@@ -1,12 +1,19 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { LoginForm } from "@/components/login-form";
+import { safeCallbackUrl } from "@/lib/safe-callback-url";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
-  const { callbackUrl = "/", error } = await searchParams;
+  const { callbackUrl: rawCallback = "/", error } = await searchParams;
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const baseOrigin = `${proto}://${host}`;
+  const callbackUrl = safeCallbackUrl(rawCallback, baseOrigin);
 
   return (
     <div className="mx-auto max-w-md space-y-8">
