@@ -4,13 +4,11 @@ import type { Event, EventStatus } from "@/generated/prisma";
 import { Prisma } from "@/generated/prisma";
 
 export async function getSiteSettings() {
-  let settings = await prisma.siteSettings.findUnique({ where: { id: "default" } });
-  if (!settings) {
-    settings = await prisma.siteSettings.create({
-      data: { id: "default", siteName: "Synapse" },
-    });
-  }
-  return settings;
+  return prisma.siteSettings.upsert({
+    where: { id: "default" },
+    create: { id: "default", siteName: "Synapse" },
+    update: {},
+  });
 }
 
 /** Single featured live public event — site settings override, else first time-effective LIVE. */
