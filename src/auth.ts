@@ -3,14 +3,17 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import type { Role } from "@/generated/prisma";
 
-const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: authSecret,
+/**
+ * Lazy config so `AUTH_SECRET` / `AUTH_URL` are read when a request runs (not when the
+ * module is first evaluated). That matches Docker/Railway where secrets exist at runtime
+ * but are absent during `next build`.
+ */
+export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
   trustHost: true,
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   pages: {
     signIn: "/login",
+    error: "/auth/error",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -54,4 +57,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-});
+}));
