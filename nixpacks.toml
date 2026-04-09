@@ -1,0 +1,4 @@
+# Fallback when not using Dockerfile: use Node 20 channel (latest 20.x from nixpkgs is typically >= 20.19).
+# Prisma 7.6 requires Node ^20.19 || ^22.12 || >=24 — avoid bare "22" (can be 22.11).
+[variables]
+NIXPACKS_NODE_VERSION = "20"

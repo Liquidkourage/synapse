@@ -1,8 +1,10 @@
 # Railway: https://railway.com — connect this repo, set variables below, add a volume for SQLite.
 # See README.md §12 (Railway deployment).
+# Root Dockerfile (if present) is used for the image; it pins Node to docker.io/node:20-bookworm-slim.
 
 [build]
-builder = "nixpacks"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "npm start"
