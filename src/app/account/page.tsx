@@ -6,11 +6,14 @@ import { ProfileForm } from "@/components/profile-form";
 export default async function AccountPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const userId = session.user.id;
+  if (!userId) redirect("/login");
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     include: { profile: true, notificationPref: true },
   });
+  if (!user) redirect("/login");
 
   return (
     <div className="mx-auto max-w-lg space-y-8">
@@ -21,9 +24,9 @@ export default async function AccountPage() {
         </p>
       </div>
       <ProfileForm
-        initialDisplayName={user?.profile?.displayName ?? ""}
-        initialBio={user?.profile?.bio ?? ""}
-        emailReminders={user?.notificationPref?.emailReminders ?? true}
+        initialDisplayName={user.profile?.displayName ?? ""}
+        initialBio={user.profile?.bio ?? ""}
+        emailReminders={user.notificationPref?.emailReminders ?? true}
       />
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 text-sm text-zinc-500">
         <h2 className="font-medium text-zinc-300">Notifications (placeholder)</h2>
