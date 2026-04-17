@@ -49,10 +49,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
       },
       async authorize(credentials) {
         const { prisma } = await import("@/lib/prisma");
-        const email = credentials?.email as string | undefined;
+        const rawEmail = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
+        const email = rawEmail?.trim().toLowerCase();
         if (!email || !password) return null;
-        const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+        const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
