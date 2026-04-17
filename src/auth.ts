@@ -10,9 +10,18 @@ function coerceCredential(value: unknown): string | undefined {
   return undefined;
 }
 
-/** Match signup + stored rows that may have spaces / different Unicode normalization. */
+/**
+ * Match signup + DB rows. Emails that *look* identical in logs can differ by bytes
+ * (NBSP, zero-width chars, fullwidth @, Cyrillic homoglyphs, etc.).
+ */
 function normalizeEmail(s: string): string {
-  return s.trim().toLowerCase().normalize("NFC");
+  return s
+    .replace(/\uFF20/g, "@") // fullwidth commercial at → ASCII @
+    .replace(/\u00A0/g, " ") // NBSP → space (trim() alone may not remove NBSP in all engines)
+    .replace(/[\u200B-\u200D\uFEFF]/g, "") // zero-width / BOM
+    .trim()
+    .toLowerCase()
+    .normalize("NFC");
 }
 
 /** Wrong email/password is expected; Auth.js would log it as [auth][error] and flood production logs. */
