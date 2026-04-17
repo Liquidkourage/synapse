@@ -246,6 +246,21 @@ export function ViewerCanvasLayout({
     return () => ro.disconnect();
   }, [mounted, initFromCanvas, storageKey]);
 
+  /** Raise stacking order on any mouse interaction with the window chrome (title, resize, edges). */
+  const bringToFront = useCallback(
+    (id: PanelId) => {
+      setGeoms((prev) => {
+        const g = prev[id];
+        if (!g) return prev;
+        maxZRef.current += 1;
+        const next = { ...prev, [id]: { ...g, z: maxZRef.current } };
+        saveStored(storageKey, next);
+        return next;
+      });
+    },
+    [storageKey],
+  );
+
   /** Live updates during drag/resize (no localStorage write). */
   const setGeomLive = useCallback((id: PanelId, patch: Partial<PanelGeom>) => {
     setGeoms((prev) => {
@@ -283,8 +298,7 @@ export function ViewerCanvasLayout({
       setGeoms((prev) => {
         const cur = prev[id];
         if (!cur) return prev;
-        maxZRef.current += 1;
-        const next = { ...prev, [id]: { ...cur, x: d.x, y: d.y, z: maxZRef.current } };
+        const next = { ...prev, [id]: { ...cur, x: d.x, y: d.y } };
         saveStored(storageKey, next);
         return next;
       });
@@ -324,7 +338,6 @@ export function ViewerCanvasLayout({
         setGeoms((prev) => {
           const cur = prev[id];
           if (!cur) return prev;
-          maxZRef.current += 1;
           const next = {
             ...prev,
             [id]: {
@@ -333,7 +346,6 @@ export function ViewerCanvasLayout({
               height: ref.offsetHeight,
               x: pos.x,
               y: pos.y,
-              z: maxZRef.current,
             },
           };
           saveStored(storageKey, next);
@@ -353,17 +365,17 @@ export function ViewerCanvasLayout({
     const g = geoms[id];
     if (!g) return null;
     return (
-      <Rnd
-        key={id}
-        bounds="parent"
-        cancel="button"
-        dragHandleClassName="synapse-panel-drag"
-        size={{ width: g.width, height: g.height }}
-        position={{ x: g.x, y: g.y }}
-        minWidth={260}
-        minHeight={140}
-        style={{ zIndex: g.z }}
-        enableResizing={{
+      <div key={id} className="contents" onPointerDownCapture={() => bringToFront(id)}>
+        <Rnd
+          bounds="parent"
+          cancel="button"
+          dragHandleClassName="synapse-panel-drag"
+          size={{ width: g.width, height: g.height }}
+          position={{ x: g.x, y: g.y }}
+          minWidth={260}
+          minHeight={140}
+          style={{ zIndex: g.z }}
+          enableResizing={{
           top: true,
           right: true,
           bottom: true,
@@ -392,6 +404,7 @@ export function ViewerCanvasLayout({
           </ZoomFrame>
         </div>
       </Rnd>
+      </div>
     );
   };
 
@@ -402,7 +415,7 @@ export function ViewerCanvasLayout({
   const footer = useMemo(
     () => (
       <p className="shrink-0 text-xs text-zinc-600">
-        Drag the <strong className="text-zinc-500">title bar</strong> to move. Drag edges or corners to resize.{" "}
+        Click anywhere on a window chrome to focus it. Drag the title to move; drag edges or corners to resize.{" "}
         <button type="button" onClick={resetLayout} className="text-violet-400 hover:underline">
           Reset layout
         </button>
@@ -423,8 +436,8 @@ export function ViewerCanvasLayout({
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
       <div className="shrink-0 text-xs text-zinc-500">
-        Drag the <strong className="text-zinc-400">panel title</strong> to move. While dragging or resizing, embeds are briefly
-        non-interactive so the cursor is not captured by iframes.
+        Click or drag any part of a window (title, edges, zoom) to bring it to the front. While dragging or resizing, embeds are
+        briefly non-interactive so the cursor is not captured by iframes.
       </div>
       <div
         ref={canvasRef}
