@@ -231,6 +231,10 @@ function FormFields({
       </div>
       <div>
         <label className="block text-sm text-zinc-400">External URL</label>
+        <p className="mt-1 text-xs text-zinc-600">
+          Full link to the game or tool (opens in a new tab). If you omit <code className="text-zinc-500">https://</code>,
+          it is added when you save so the link is not treated as a path on Synapse.
+        </p>
         <input
           name="externalUrl"
           defaultValue={d.externalUrl}
@@ -370,7 +374,10 @@ function FormFields({
       </div>
       <div>
         <label className="block text-sm text-zinc-400">Game / tool embed URL (optional)</label>
-        <p className="mt-1 text-xs text-zinc-600">Separate from host video — trivia app, form, or other iframe.</p>
+        <p className="mt-1 text-xs text-zinc-600">
+          Separate from host video — trivia app, form, or other iframe. Include <code className="text-zinc-500">https://</code>{" "}
+          or it will be added on save.
+        </p>
         <input
           name="embedUrl"
           defaultValue={d.embedUrl}

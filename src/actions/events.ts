@@ -8,6 +8,7 @@ import { z } from "zod";
 import { isHostOrAbove, isProducerOrAbove } from "@/lib/rbac";
 import { slugify } from "@/lib/slug";
 import { getSynapseVideoServerHints, provisionDailyRoomForEvent } from "@/lib/synapse-video";
+import { ensureHttpUrl } from "@/lib/url";
 
 const emptyToUndef = (v: unknown) => {
   if (v === undefined || v === null) return undefined;
@@ -85,16 +86,16 @@ export async function createEvent(formData: FormData) {
       hostId,
       producerId: parsed.data.producerId || null,
       platformName: parsed.data.platformName || null,
-      externalUrl: parsed.data.externalUrl || null,
-      embedUrl: parsed.data.embedUrl || null,
-      broadcastEmbedUrl: parsed.data.broadcastEmbedUrl || null,
+      externalUrl: ensureHttpUrl(parsed.data.externalUrl) ?? null,
+      embedUrl: ensureHttpUrl(parsed.data.embedUrl) ?? null,
+      broadcastEmbedUrl: ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
       broadcastHostOnlyJoin: parsed.data.broadcastHostOnlyJoin ?? false,
       broadcastStreamingMode,
       integrationType: parsed.data.integrationType || null,
       instructions: parsed.data.instructions || null,
-      coverImageUrl: parsed.data.coverImageUrl || null,
-      bannerImageUrl: parsed.data.bannerImageUrl || null,
-      replayUrl: parsed.data.replayUrl || null,
+      coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
+      bannerImageUrl: ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
+      replayUrl: ensureHttpUrl(parsed.data.replayUrl) ?? null,
       resultsSummary: parsed.data.resultsSummary || null,
       recurrenceNote: parsed.data.recurrenceNote || null,
     },
@@ -145,16 +146,16 @@ export async function updateEvent(eventId: string, formData: FormData) {
       status: parsed.data.status as EventStatus,
       statusOverride: parsed.data.statusOverride ? (parsed.data.statusOverride as EventStatus) : null,
       platformName: parsed.data.platformName || null,
-      externalUrl: parsed.data.externalUrl || null,
-      embedUrl: parsed.data.embedUrl || null,
-      broadcastEmbedUrl: parsed.data.broadcastEmbedUrl || null,
+      externalUrl: ensureHttpUrl(parsed.data.externalUrl) ?? null,
+      embedUrl: ensureHttpUrl(parsed.data.embedUrl) ?? null,
+      broadcastEmbedUrl: ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
       broadcastHostOnlyJoin: parsed.data.broadcastHostOnlyJoin ?? false,
       broadcastStreamingMode,
       integrationType: parsed.data.integrationType || null,
       instructions: parsed.data.instructions || null,
-      coverImageUrl: parsed.data.coverImageUrl || null,
-      bannerImageUrl: parsed.data.bannerImageUrl || null,
-      replayUrl: parsed.data.replayUrl || null,
+      coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
+      bannerImageUrl: ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
+      replayUrl: ensureHttpUrl(parsed.data.replayUrl) ?? null,
       resultsSummary: parsed.data.resultsSummary || null,
       recurrenceNote: parsed.data.recurrenceNote || null,
       ...(isProducerOrAbove(session.user.role) && parsed.data.producerId
@@ -189,9 +190,9 @@ export async function createArchiveEntry(formData: FormData) {
       slug,
       title,
       description: (formData.get("description") as string) || null,
-      videoUrl: (formData.get("videoUrl") as string) || null,
-      thumbnailUrl: (formData.get("thumbnailUrl") as string) || null,
-      externalUrl: (formData.get("externalUrl") as string) || null,
+      videoUrl: ensureHttpUrl(emptyToUndef(formData.get("videoUrl"))) ?? null,
+      thumbnailUrl: ensureHttpUrl(emptyToUndef(formData.get("thumbnailUrl"))) ?? null,
+      externalUrl: ensureHttpUrl(emptyToUndef(formData.get("externalUrl"))) ?? null,
       eventId: (formData.get("eventId") as string) || null,
     },
   });
