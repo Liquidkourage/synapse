@@ -1,7 +1,20 @@
 import NextAuth from "next-auth";
+import { AuthError } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import type { Role } from "@/generated/prisma";
+
+/** Wrong email/password is expected; Auth.js would log it as [auth][error] and flood production logs. */
+function authLoggerError(error: unknown) {
+  if (error instanceof AuthError && error.type === "CredentialsSignin") return;
+  const name =
+    error instanceof AuthError ? error.type : error instanceof Error ? error.name : "Error";
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[auth][error] ${name}: ${message}`);
+  if (error instanceof Error && error.stack) {
+    console.error(error.stack.replace(/.*/, "").substring(1));
+  }
+}
 
 /**
  * Lazy config so `AUTH_SECRET` / `AUTH_URL` are read when a request runs (not when the
@@ -10,6 +23,7 @@ import type { Role } from "@/generated/prisma";
  */
 export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
   trustHost: true,
+  logger: { error: authLoggerError },
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   pages: {
     signIn: "/login",
