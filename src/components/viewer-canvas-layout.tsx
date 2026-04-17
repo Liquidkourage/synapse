@@ -114,7 +114,7 @@ function PanelToolbar({
 }) {
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 bg-zinc-950/90 px-2 py-1.5">
-      <span className="synapse-panel-drag cursor-grab text-xs font-medium text-zinc-400 active:cursor-grabbing">
+      <span className="synapse-panel-drag flex min-h-[2rem] min-w-0 flex-1 cursor-grab touch-none select-none items-center text-xs font-medium text-zinc-400 active:cursor-grabbing">
         {label}
       </span>
       <div className="flex items-center gap-1">
@@ -147,9 +147,21 @@ function PanelToolbar({
   );
 }
 
-function ZoomFrame({ zoom, children }: { zoom: number; children: React.ReactNode }) {
+function ZoomFrame({
+  zoom,
+  blockPointerEvents,
+  children,
+}: {
+  zoom: number;
+  /** If true, iframes cannot steal pointer events (needed while dragging/resizing floating panels). */
+  blockPointerEvents?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="min-h-0 min-w-0 flex-1 overflow-auto" style={{ zoom }}>
+    <div
+      className={`min-h-0 min-w-0 flex-1 overflow-auto ${blockPointerEvents ? "pointer-events-none" : ""}`}
+      style={{ zoom }}
+    >
       <div className="h-full min-h-[80px] w-full min-w-0">{children}</div>
     </div>
   );
@@ -183,6 +195,8 @@ export function ViewerCanvasLayout({
   const [mounted, setMounted] = useState(false);
   const [geoms, setGeoms] = useState<Stored>({});
   const [zoom, setZoom] = useState({ video: 1, primary: 1, secondary: 1 });
+  /** While true, iframes are pointer-events:none so they cannot steal drag/resize from react-rnd. */
+  const [canvasPointerLock, setCanvasPointerLock] = useState(false);
   const maxZRef = useRef(3);
 
   useEffect(() => setMounted(true), []);
@@ -232,32 +246,14 @@ export function ViewerCanvasLayout({
     return () => ro.disconnect();
   }, [mounted, initFromCanvas, storageKey]);
 
-  const bringToFront = useCallback(
-    (id: PanelId) => {
-      setGeoms((prev) => {
-        const g = prev[id];
-        if (!g) return prev;
-        maxZRef.current += 1;
-        const updated = { ...prev, [id]: { ...g, z: maxZRef.current } };
-        saveStored(storageKey, updated);
-        return updated;
-      });
-    },
-    [storageKey],
-  );
-
-  const updateGeom = useCallback(
-    (id: PanelId, patch: Partial<PanelGeom>) => {
-      setGeoms((prev) => {
-        const cur = prev[id];
-        if (!cur) return prev;
-        const next = { ...prev, [id]: { ...cur, ...patch } };
-        saveStored(storageKey, next);
-        return next;
-      });
-    },
-    [storageKey],
-  );
+  /** Live updates during drag/resize (no localStorage write). */
+  const setGeomLive = useCallback((id: PanelId, patch: Partial<PanelGeom>) => {
+    setGeoms((prev) => {
+      const cur = prev[id];
+      if (!cur) return prev;
+      return { ...prev, [id]: { ...cur, ...patch } };
+    });
+  }, []);
 
   const resetLayout = useCallback(() => {
     try {
@@ -274,11 +270,45 @@ export function ViewerCanvasLayout({
     initOnceRef.current = true;
   }, [storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
 
+  const onDrag = useCallback(
+    (id: PanelId) => (_e: unknown, d: { x: number; y: number }) => {
+      setGeomLive(id, { x: d.x, y: d.y });
+    },
+    [setGeomLive],
+  );
+
   const onDragStop = useCallback(
     (id: PanelId) => (_e: unknown, d: { x: number; y: number }) => {
-      updateGeom(id, { x: d.x, y: d.y });
+      setCanvasPointerLock(false);
+      setGeoms((prev) => {
+        const cur = prev[id];
+        if (!cur) return prev;
+        maxZRef.current += 1;
+        const next = { ...prev, [id]: { ...cur, x: d.x, y: d.y, z: maxZRef.current } };
+        saveStored(storageKey, next);
+        return next;
+      });
     },
-    [updateGeom],
+    [storageKey],
+  );
+
+  const onResize = useCallback(
+    (id: PanelId) =>
+      (
+        _e: MouseEvent | TouchEvent,
+        _dir: ResizeDirection,
+        ref: HTMLElement,
+        _delta: { width: number; height: number },
+        pos: { x: number; y: number },
+      ) => {
+        setGeomLive(id, {
+          width: ref.offsetWidth,
+          height: ref.offsetHeight,
+          x: pos.x,
+          y: pos.y,
+        });
+      },
+    [setGeomLive],
   );
 
   const onResizeStop = useCallback(
@@ -290,14 +320,27 @@ export function ViewerCanvasLayout({
         _delta: { width: number; height: number },
         pos: { x: number; y: number },
       ) => {
-        updateGeom(id, {
-          width: ref.offsetWidth,
-          height: ref.offsetHeight,
-          x: pos.x,
-          y: pos.y,
+        setCanvasPointerLock(false);
+        setGeoms((prev) => {
+          const cur = prev[id];
+          if (!cur) return prev;
+          maxZRef.current += 1;
+          const next = {
+            ...prev,
+            [id]: {
+              ...cur,
+              width: ref.offsetWidth,
+              height: ref.offsetHeight,
+              x: pos.x,
+              y: pos.y,
+              z: maxZRef.current,
+            },
+          };
+          saveStored(storageKey, next);
+          return next;
         });
       },
-    [updateGeom],
+    [storageKey],
   );
 
   const renderPanel = (
@@ -330,15 +373,23 @@ export function ViewerCanvasLayout({
           bottomLeft: true,
           topLeft: true,
         }}
-        onDragStart={() => bringToFront(id)}
-        onResizeStart={() => bringToFront(id)}
+        onDragStart={() => {
+          setCanvasPointerLock(true);
+        }}
+        onDrag={onDrag(id)}
         onDragStop={onDragStop(id)}
+        onResizeStart={() => {
+          setCanvasPointerLock(true);
+        }}
+        onResize={onResize(id)}
         onResizeStop={onResizeStop(id)}
         className="flex flex-col overflow-hidden rounded-xl border border-zinc-700/90 bg-black shadow-xl shadow-black/40"
       >
-        <div className="flex h-full min-h-0 flex-col" onPointerDownCapture={() => bringToFront(id)}>
+        <div className="flex h-full min-h-0 flex-col">
           <PanelToolbar label={label} zoom={zm} onZoom={onZoom} />
-          <ZoomFrame zoom={zm}>{content}</ZoomFrame>
+          <ZoomFrame zoom={zm} blockPointerEvents={canvasPointerLock}>
+            {content}
+          </ZoomFrame>
         </div>
       </Rnd>
     );
@@ -372,7 +423,8 @@ export function ViewerCanvasLayout({
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
       <div className="shrink-0 text-xs text-zinc-500">
-        Free-form canvas — windows stay within the shaded area; scroll if the canvas is larger than your screen.
+        Drag the <strong className="text-zinc-400">panel title</strong> to move. While dragging or resizing, embeds are briefly
+        non-interactive so the cursor is not captured by iframes.
       </div>
       <div
         ref={canvasRef}
