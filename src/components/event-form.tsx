@@ -73,6 +73,7 @@ export function EventEditForm({
           broadcastHostOnlyJoin: event.broadcastHostOnlyJoin ? "on" : "",
           videoRoomMode: event.broadcastStreamingMode ? "streaming" : "open",
           embedUrl: event.embedUrl ?? "",
+          secondaryEmbedUrl: event.secondaryEmbedUrl ?? "",
           integrationType: event.integrationType ?? "",
           instructions: event.instructions ?? "",
           coverImageUrl: event.coverImageUrl ?? "",
@@ -381,6 +382,19 @@ function FormFields({
         <input
           name="embedUrl"
           defaultValue={d.embedUrl}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-zinc-400">Second embed URL (optional)</label>
+        <p className="mt-1 text-xs text-zinc-600">
+          Another iframe below the first — e.g. public display or scoreboard while the primary embed is the player UI.{" "}
+          Same visibility rules as the first embed. <code className="text-zinc-500">https://</code> is added on save if
+          omitted.
+        </p>
+        <input
+          name="secondaryEmbedUrl"
+          defaultValue={d.secondaryEmbedUrl}
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>

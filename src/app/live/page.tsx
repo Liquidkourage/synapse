@@ -15,13 +15,16 @@ import { auth } from "@/auth";
 export default async function LivePage() {
   const [live, session] = await Promise.all([getPublicLiveEvent(), auth()]);
 
+  const hasAnyToolEmbed = !!(live?.embedUrl || live?.secondaryEmbedUrl);
   const gameEmbed =
-    live?.embedUrl != null
+    hasAnyToolEmbed && live
       ? getGameEmbedVisibility(live, live.effectiveStatus, session)
       : { show: false, preview: false };
 
-  const gameEmbedSrc =
+  const primaryEmbedSrc =
     live?.embedUrl && isSafeUrlForIframe(live.embedUrl) ? live.embedUrl : null;
+  const secondaryEmbedSrc =
+    live?.secondaryEmbedUrl && isSafeUrlForIframe(live.secondaryEmbedUrl) ? live.secondaryEmbedUrl : null;
 
   const embedSrc = live
     ? await resolveDailyBroadcastEmbedUrl(
@@ -108,39 +111,72 @@ export default async function LivePage() {
             </div>
           )}
 
-          {live.embedUrl && gameEmbed.preview && (
-            <p className="text-xs text-amber-400/90">Preview — game embed is public once this event is LIVE.</p>
+          {hasAnyToolEmbed && gameEmbed.preview && (
+            <p className="text-xs text-amber-400/90">
+              Preview — embeds are public once this event is LIVE.
+            </p>
           )}
 
-          {live.embedUrl && gameEmbed.show && gameEmbedSrc ? (
+          {live.embedUrl && gameEmbed.show && primaryEmbedSrc && (
             <div className="rounded-2xl border border-zinc-800 bg-black p-2">
-              <p className="mb-2 px-2 text-xs font-medium text-zinc-500">Game / tool</p>
+              <p className="mb-2 px-2 text-xs font-medium text-zinc-500">Game / tool (primary)</p>
               <div className="aspect-video w-full overflow-hidden rounded-xl">
                 <iframe
                   title="Embedded experience"
-                  src={gameEmbedSrc}
+                  src={primaryEmbedSrc}
                   className="h-full w-full border-0"
                   allow="clipboard-write; fullscreen"
                 />
               </div>
               <p className="mt-2 px-2 text-xs text-zinc-500">
-                If the embed is blocked, use the external link on the event page — some hosts disallow iframes.
+                If an embed is blocked, use the external link on the event page — some hosts disallow iframes.
               </p>
             </div>
-          ) : live.embedUrl && gameEmbed.show && !gameEmbedSrc ? (
+          )}
+
+          {live.embedUrl && gameEmbed.show && !primaryEmbedSrc && (
             <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-200/90">
-              Game embed URL is not a valid http(s) link.
+              Primary embed URL is not a valid http(s) link.
             </div>
-          ) : live.embedUrl && !gameEmbed.show ? (
+          )}
+
+          {live.secondaryEmbedUrl && gameEmbed.show && secondaryEmbedSrc && (
+            <div className="rounded-2xl border border-zinc-800 bg-black p-2">
+              <p className="mb-2 px-2 text-xs font-medium text-zinc-500">Second embed</p>
+              <div className="aspect-video w-full overflow-hidden rounded-xl">
+                <iframe
+                  title="Second embedded experience"
+                  src={secondaryEmbedSrc}
+                  className="h-full w-full border-0"
+                  allow="clipboard-write; fullscreen"
+                />
+              </div>
+            </div>
+          )}
+
+          {live.secondaryEmbedUrl && gameEmbed.show && !secondaryEmbedSrc && (
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-200/90">
+              Second embed URL is not a valid http(s) link.
+            </div>
+          )}
+
+          {hasAnyToolEmbed && !gameEmbed.show && (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-500">
-              Game embed (e.g. TrivNow) will appear here when this event is in its live window.{" "}
+              Embeds appear here during the live window.{" "}
               {live.externalUrl && (
-                <a href={live.externalUrl} className="text-violet-400 hover:underline" target="_blank" rel="noopener noreferrer">
+                <a
+                  href={live.externalUrl}
+                  className="text-violet-400 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Open game in a new tab
                 </a>
               )}
             </div>
-          ) : !live.broadcastEmbedUrl ? (
+          )}
+
+          {!live.broadcastEmbedUrl && !hasAnyToolEmbed ? (
             <p className="text-sm text-zinc-500">
               No embed for this session — open the external tool from the{" "}
               <Link href={`/events/${live.slug}`} className="text-violet-400 hover:underline">

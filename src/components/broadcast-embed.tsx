@@ -16,7 +16,6 @@ export function BroadcastEmbed({
         src={src}
         className="h-full w-full border-0"
         allow={BROADCAST_IFRAME_ALLOW}
-        allowFullScreen
       />
     </div>
   );

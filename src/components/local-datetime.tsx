@@ -11,7 +11,7 @@ export function LocalDateTime({
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return <span>—</span>;
   return (
-    <time dateTime={iso}>
+    <time dateTime={iso} suppressHydrationWarning>
       {d.toLocaleString(undefined, options ?? { dateStyle: "medium", timeStyle: "short" })}
     </time>
   );

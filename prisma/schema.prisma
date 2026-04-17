@@ -105,6 +105,8 @@ model Event {
   externalUrl     String?
   /// Trivia/game/tool iframe (optional) — distinct from host video broadcast.
   embedUrl        String?
+  /// Second iframe alongside embedUrl (e.g. public display / scoreboard while primary is player UI).
+  secondaryEmbedUrl String?
   /// Live video for Synapse viewers. Native path: Daily.co room URL (see `src/lib/synapse-video.ts`). Override: other iframe-safe URLs.
   broadcastEmbedUrl String?
   /// When true, the video iframe is shown only to the event host (and admin / assigned producer), not to anonymous viewers or other players.
