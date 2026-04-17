@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import { AuthError } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import type { Role } from "@/generated/prisma";
+import type { Role, User } from "@/generated/prisma";
 
 function coerceCredential(value: unknown): string | undefined {
   if (typeof value === "string") return value;
@@ -90,9 +90,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
           return null;
         }
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        // SQLite compares strings case-sensitively; Prisma has no `mode: insensitive` here.
+        const rows = await prisma.$queryRaw<User[]>`
+          SELECT * FROM "User" WHERE LOWER("email") = ${email}
+        `;
+        const user = rows[0] ?? null;
         if (!user) {
-          if (authDebug) console.log("[auth][debug] no User row for email");
+          if (authDebug) console.log("[auth][debug] no User row for email (LOWER match)");
           return null;
         }
 
