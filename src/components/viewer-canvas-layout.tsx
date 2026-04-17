@@ -107,13 +107,19 @@ function PanelToolbar({
   label,
   zoom,
   onZoom,
+  onToolbarClick,
 }: {
   label: string;
   zoom: number;
   onZoom: (z: number) => void;
+  /** Fires after mouse/touch release (not during pointerdown) so it does not fight react-rnd drag. */
+  onToolbarClick?: () => void;
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 bg-zinc-950/90 px-2 py-1.5">
+    <div
+      className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 bg-zinc-950/90 px-2 py-1.5"
+      onClick={onToolbarClick}
+    >
       <span className="synapse-panel-drag flex min-h-[2rem] min-w-0 flex-1 cursor-grab touch-none select-none items-center text-xs font-medium text-zinc-400 active:cursor-grabbing">
         {label}
       </span>
@@ -144,6 +150,83 @@ function PanelToolbar({
         </button>
       </div>
     </div>
+  );
+}
+
+/** Stable position/size/style objects so react-rnd controlled mode does not reset on unrelated parent renders. */
+function PanelRnd({
+  x,
+  y,
+  width,
+  height,
+  z,
+  onDrag,
+  onDragStart,
+  onDragStop,
+  onResize,
+  onResizeStart,
+  onResizeStop,
+  children,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  z: number;
+  onDrag: (e: unknown, d: { x: number; y: number }) => void;
+  onDragStart: () => void;
+  onDragStop: (e: unknown, d: { x: number; y: number }) => void;
+  onResize: (
+    e: MouseEvent | TouchEvent,
+    dir: ResizeDirection,
+    ref: HTMLElement,
+    delta: { width: number; height: number },
+    pos: { x: number; y: number },
+  ) => void;
+  onResizeStart: () => void;
+  onResizeStop: (
+    e: MouseEvent | TouchEvent,
+    dir: ResizeDirection,
+    ref: HTMLElement,
+    delta: { width: number; height: number },
+    pos: { x: number; y: number },
+  ) => void;
+  children: React.ReactNode;
+}) {
+  const position = useMemo(() => ({ x, y }), [x, y]);
+  const size = useMemo(() => ({ width, height }), [width, height]);
+  const rndStyle = useMemo(() => ({ zIndex: z }), [z]);
+
+  return (
+    <Rnd
+      bounds="parent"
+      cancel="button"
+      dragHandleClassName="synapse-panel-drag"
+      size={size}
+      position={position}
+      minWidth={260}
+      minHeight={140}
+      style={rndStyle}
+      enableResizing={{
+        top: true,
+        right: true,
+        bottom: true,
+        left: true,
+        topRight: true,
+        bottomRight: true,
+        bottomLeft: true,
+        topLeft: true,
+      }}
+      onDragStart={onDragStart}
+      onDrag={onDrag}
+      onDragStop={onDragStop}
+      onResizeStart={onResizeStart}
+      onResize={onResize}
+      onResizeStop={onResizeStop}
+      className="flex flex-col overflow-hidden rounded-xl border border-zinc-700/90 bg-black shadow-xl shadow-black/40"
+    >
+      {children}
+    </Rnd>
   );
 }
 
@@ -298,7 +381,8 @@ export function ViewerCanvasLayout({
       setGeoms((prev) => {
         const cur = prev[id];
         if (!cur) return prev;
-        const next = { ...prev, [id]: { ...cur, x: d.x, y: d.y } };
+        maxZRef.current += 1;
+        const next = { ...prev, [id]: { ...cur, x: d.x, y: d.y, z: maxZRef.current } };
         saveStored(storageKey, next);
         return next;
       });
@@ -338,6 +422,7 @@ export function ViewerCanvasLayout({
         setGeoms((prev) => {
           const cur = prev[id];
           if (!cur) return prev;
+          maxZRef.current += 1;
           const next = {
             ...prev,
             [id]: {
@@ -346,6 +431,7 @@ export function ViewerCanvasLayout({
               height: ref.offsetHeight,
               x: pos.x,
               y: pos.y,
+              z: maxZRef.current,
             },
           };
           saveStored(storageKey, next);
@@ -365,26 +451,13 @@ export function ViewerCanvasLayout({
     const g = geoms[id];
     if (!g) return null;
     return (
-      <div key={id} className="contents" onPointerDownCapture={() => bringToFront(id)}>
-        <Rnd
-          bounds="parent"
-          cancel="button"
-          dragHandleClassName="synapse-panel-drag"
-          size={{ width: g.width, height: g.height }}
-          position={{ x: g.x, y: g.y }}
-          minWidth={260}
-          minHeight={140}
-          style={{ zIndex: g.z }}
-          enableResizing={{
-          top: true,
-          right: true,
-          bottom: true,
-          left: true,
-          topRight: true,
-          bottomRight: true,
-          bottomLeft: true,
-          topLeft: true,
-        }}
+      <PanelRnd
+        key={id}
+        x={g.x}
+        y={g.y}
+        width={g.width}
+        height={g.height}
+        z={g.z}
         onDragStart={() => {
           setCanvasPointerLock(true);
         }}
@@ -395,16 +468,14 @@ export function ViewerCanvasLayout({
         }}
         onResize={onResize(id)}
         onResizeStop={onResizeStop(id)}
-        className="flex flex-col overflow-hidden rounded-xl border border-zinc-700/90 bg-black shadow-xl shadow-black/40"
       >
         <div className="flex h-full min-h-0 flex-col">
-          <PanelToolbar label={label} zoom={zm} onZoom={onZoom} />
+          <PanelToolbar label={label} zoom={zm} onZoom={onZoom} onToolbarClick={() => bringToFront(id)} />
           <ZoomFrame zoom={zm} blockPointerEvents={canvasPointerLock}>
             {content}
           </ZoomFrame>
         </div>
-      </Rnd>
-      </div>
+      </PanelRnd>
     );
   };
 
@@ -415,7 +486,7 @@ export function ViewerCanvasLayout({
   const footer = useMemo(
     () => (
       <p className="shrink-0 text-xs text-zinc-600">
-        Click anywhere on a window chrome to focus it. Drag the title to move; drag edges or corners to resize.{" "}
+        Click the toolbar (title or zoom) to raise a window. Drag the title to move; drag edges or corners to resize.{" "}
         <button type="button" onClick={resetLayout} className="text-violet-400 hover:underline">
           Reset layout
         </button>
@@ -436,8 +507,8 @@ export function ViewerCanvasLayout({
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
       <div className="shrink-0 text-xs text-zinc-500">
-        Click or drag any part of a window (title, edges, zoom) to bring it to the front. While dragging or resizing, embeds are
-        briefly non-interactive so the cursor is not captured by iframes.
+        Click the toolbar to focus a window. Drag the title to move; drag edges or corners to resize. While dragging or
+        resizing, embeds are briefly non-interactive so the cursor is not captured by iframes.
       </div>
       <div
         ref={canvasRef}
