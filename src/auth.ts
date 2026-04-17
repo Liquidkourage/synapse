@@ -10,6 +10,11 @@ function coerceCredential(value: unknown): string | undefined {
   return undefined;
 }
 
+/** Match signup + stored rows that may have spaces / different Unicode normalization. */
+function normalizeEmail(s: string): string {
+  return s.trim().toLowerCase().normalize("NFC");
+}
+
 /** Wrong email/password is expected; Auth.js would log it as [auth][error] and flood production logs. */
 function authLoggerError(error: unknown) {
   if (error instanceof AuthError && error.type === "CredentialsSignin") return;
@@ -71,7 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
         const { prisma } = await import("@/lib/prisma");
         const rawEmail = coerceCredential(credentials?.email);
         const password = coerceCredential(credentials?.password);
-        const email = rawEmail?.trim().toLowerCase();
+        const email = rawEmail ? normalizeEmail(rawEmail) : undefined;
         const authDebug =
           process.env.AUTH_DEBUG === "1" || process.env.AUTH_DEBUG === "true";
 
@@ -90,13 +95,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
           return null;
         }
 
-        // SQLite compares strings case-sensitively; Prisma has no `mode: insensitive` here.
+        // Prefer SQL (indexed); trim column for rows inserted with stray spaces.
         const rows = await prisma.$queryRaw<User[]>`
-          SELECT * FROM "User" WHERE LOWER("email") = ${email}
+          SELECT * FROM "User" WHERE LOWER(TRIM("email")) = ${email}
         `;
-        const user = rows[0] ?? null;
+        let user: User | null = rows[0] ?? null;
+
+        // Fallback: Prisma client + JS match (handles $queryRaw/adapter quirks + NFC edge cases).
         if (!user) {
-          if (authDebug) console.log("[auth][debug] no User row for email (LOWER match)");
+          const batch = await prisma.user.findMany({ take: 2000 });
+          user = batch.find((u) => normalizeEmail(u.email) === email) ?? null;
+        }
+
+        if (!user) {
+          if (authDebug) {
+            const n = await prisma.user.count();
+            console.log("[auth][debug] no User row after SQL+scan; User.count()=", n);
+          }
           return null;
         }
 
