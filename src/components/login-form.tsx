@@ -1,8 +1,8 @@
 "use client";
 
-import { loginWithCredentials } from "@/actions/login";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
 
 export function LoginForm({
@@ -13,13 +13,13 @@ export function LoginForm({
   initialEmail?: string;
 }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState(loginWithCredentials, undefined);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
   const [strippedPasswordFromUrl, setStrippedPasswordFromUrl] = useState(false);
-  /** Controlled so fields are not cleared after a failed server action re-render. */
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
 
-  /** Strip `?password=` from the URL once (avoid useSearchParams — fewer RSC/Suspense edge cases). */
+  /** Strip `?password=` from the URL once. */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (!params.has("password")) return;
@@ -33,19 +33,24 @@ export function LoginForm({
     setEmail(initialEmail);
   }, [initialEmail]);
 
-  useEffect(() => {
-    if (state?.ok) {
-      const next = safeCallbackUrl(callbackUrl, window.location.origin);
-      router.push(next);
-      router.refresh();
-    }
-  }, [state, callbackUrl, router]);
-
-  const err = state?.ok === false ? state.error : null;
-
   return (
-    <form className="space-y-4" action={formAction}>
-      <input type="hidden" name="callbackUrl" value={callbackUrl} />
+    <form
+      className="space-y-4"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setErr(null);
+        setPending(true);
+        const res = await signIn("credentials", { email, password, redirect: false });
+        setPending(false);
+        if (res?.error) {
+          setErr("Invalid credentials.");
+          return;
+        }
+        const next = safeCallbackUrl(callbackUrl, window.location.origin);
+        router.push(next);
+        router.refresh();
+      }}
+    >
       {strippedPasswordFromUrl && (
         <p className="rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-sm text-amber-100">
           Passwords can&apos;t be used from the address bar (it isn&apos;t secure). Enter your
