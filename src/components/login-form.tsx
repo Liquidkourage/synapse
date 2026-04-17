@@ -16,6 +16,9 @@ export function LoginForm({
   const searchParams = useSearchParams();
   const [state, formAction, pending] = useActionState(loginWithCredentials, undefined);
   const [strippedPasswordFromUrl, setStrippedPasswordFromUrl] = useState(false);
+  /** Controlled so fields are not cleared after a failed server action re-render. */
+  const [email, setEmail] = useState(initialEmail);
+  const [password, setPassword] = useState("");
 
   /** Passwords must never stay in the query string (history, logs, referrers). */
   useEffect(() => {
@@ -26,6 +29,10 @@ export function LoginForm({
     const qs = params.toString();
     router.replace(qs ? `/login?${qs}` : "/login", { scroll: false });
   }, [searchParams, router]);
+
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
 
   useEffect(() => {
     if (state?.ok) {
@@ -53,7 +60,8 @@ export function LoginForm({
           type="email"
           required
           autoComplete="email"
-          defaultValue={initialEmail}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
         />
       </div>
@@ -64,6 +72,8 @@ export function LoginForm({
           type="password"
           required
           autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
         />
       </div>
