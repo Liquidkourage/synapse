@@ -1,6 +1,6 @@
 /**
- * Single place for SQLite file URL so Prisma CLI (`prisma db push`) and the app agree.
- * Railway: set `DATABASE_URL=file:/data/synapse.db` **or** rely on `RAILWAY_VOLUME_MOUNT_PATH`.
+ * Lives under `prisma/` so Docker can COPY it before `npm ci` (postinstall runs `prisma generate`).
+ * SQLite file URL for Prisma CLI and the app.
  */
 export function resolveDatabaseUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
