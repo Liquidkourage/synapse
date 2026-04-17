@@ -5,7 +5,7 @@ import type { Session } from "next-auth";
 import { BroadcastEmbed } from "@/components/broadcast-embed";
 import { BroadcastRestrictedNotice } from "@/components/broadcast-restricted-notice";
 import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
-import { ViewerResizableLayout } from "@/components/viewer-resizable-layout";
+import { ViewerCanvasLayout } from "@/components/viewer-canvas-layout";
 
 const iframeAllow = "clipboard-write; fullscreen";
 
@@ -44,7 +44,7 @@ type Props = {
 };
 
 /**
- * Viewer layout: draggable splits between host video and one or two tool embeds, with zoom and presets.
+ * Viewer: free-form canvas — drag title bars, resize edges/corners, per-panel zoom; layout persisted locally.
  */
 export function EventViewerPanels({
   storageKey,
@@ -117,7 +117,7 @@ export function EventViewerPanels({
 
       {showResizable && (
         <div className="flex min-h-0 flex-1 flex-col">
-          <ViewerResizableLayout
+          <ViewerCanvasLayout
             storageKey={storageKey}
             videoLabel={broadcastLabel}
             video={videoNode ?? undefined}
