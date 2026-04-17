@@ -113,7 +113,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
         // Fallback: Prisma client + JS match (handles $queryRaw/adapter quirks + NFC edge cases).
         if (!user) {
           const batch = await prisma.user.findMany({ take: 2000 });
+          if (authDebug) {
+            console.log("[auth][debug] findMany batch.length", batch.length);
+          }
           user = batch.find((u) => normalizeEmail(u.email) === email) ?? null;
+        }
+
+        // Last resort for single-user PoC: password-only if env set (disable when >1 user).
+        if (
+          !user &&
+          (process.env.AUTH_SOLE_USER_PASSWORD_LOGIN === "1" ||
+            process.env.AUTH_SOLE_USER_PASSWORD_LOGIN === "true")
+        ) {
+          const n = await prisma.user.count();
+          if (n === 1) {
+            const sole = await prisma.user.findFirst();
+            if (sole && (await bcrypt.compare(password, sole.passwordHash))) {
+              user = sole;
+              if (authDebug) {
+                console.log(
+                  "[auth][debug] AUTH_SOLE_USER_PASSWORD_LOGIN accepted (sole user, password ok)",
+                );
+              }
+            }
+          }
         }
 
         if (!user) {
