@@ -6,7 +6,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
   return (
-    <div className="flex min-h-full flex-col bg-zinc-950 text-zinc-100">
+    <div className="flex min-h-0 flex-1 flex-col bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-40 border-b border-violet-500/20 bg-zinc-950/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="font-semibold tracking-tight text-violet-300">

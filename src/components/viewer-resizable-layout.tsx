@@ -189,7 +189,7 @@ export function ViewerResizableLayout({
   /** Single panel: no Group */
   if (hasVideo && !hasPrimary && !hasSecondary) {
     return (
-      <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
         {showToolbar && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
             Drag panel edges to resize. Use zoom if text feels small.
@@ -205,7 +205,7 @@ export function ViewerResizableLayout({
 
   if (!hasVideo && hasPrimary && !hasSecondary) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
         <PanelToolbar label={primaryLabel} zoom={zoom.primary} onZoom={(z) => setZoom((s) => ({ ...s, primary: z }))} />
         <ZoomFrame zoom={zoom.primary}>{primary}</ZoomFrame>
       </div>
@@ -214,7 +214,7 @@ export function ViewerResizableLayout({
 
   if (!hasVideo && !hasPrimary && hasSecondary) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
         <PanelToolbar
           label={secondaryLabel}
           zoom={zoom.secondary}
@@ -227,7 +227,7 @@ export function ViewerResizableLayout({
 
   if (!hasVideo && hasPrimary && hasSecondary) {
     return (
-      <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
         <div className="shrink-0">
           <PresetBar
             hasPair
@@ -235,7 +235,7 @@ export function ViewerResizableLayout({
             onSwap={() => setEmbedOrder((o) => (o === "primaryFirst" ? "secondaryFirst" : "primaryFirst"))}
           />
         </div>
-        <div className="min-h-0 w-full min-w-0 flex-1">
+        <div className="h-full min-h-0 w-full min-w-0 flex-1">
           <Group
             groupRef={embedGroupRef}
             orientation="horizontal"
@@ -265,7 +265,7 @@ export function ViewerResizableLayout({
 
   /** Video + one or two embeds: vertical + optional horizontal */
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
       <div className="shrink-0">
         <PresetBar
           hasPair={hasPrimary && hasSecondary}
@@ -277,7 +277,7 @@ export function ViewerResizableLayout({
           }
         />
       </div>
-      <div className="min-h-0 w-full min-w-0 flex-1">
+      <div className="h-full min-h-0 w-full min-w-0 flex-1">
         <Group
           groupRef={mainGroupRef}
           orientation="vertical"

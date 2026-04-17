@@ -98,7 +98,7 @@ export function EventViewerPanels({
     );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-6">
       {hasAnyToolEmbed && gameEmbed.preview && (
         <p className="text-xs text-amber-400/90">Preview — embeds are public once this event is LIVE.</p>
       )}
@@ -116,18 +116,20 @@ export function EventViewerPanels({
       )}
 
       {showResizable && (
-        <ViewerResizableLayout
-          storageKey={storageKey}
-          videoLabel={broadcastLabel}
-          video={videoNode ?? undefined}
-          primary={hasPrimary ? <ToolEmbedFrame title="Embedded experience" src={primaryEmbedSrc!} /> : undefined}
-          secondary={
-            hasSecondary ? <ToolEmbedFrame title="Second embedded experience" src={secondaryEmbedSrc!} /> : undefined
-          }
-          hasVideo={hasVideo}
-          hasPrimary={hasPrimary}
-          hasSecondary={hasSecondary}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ViewerResizableLayout
+            storageKey={storageKey}
+            videoLabel={broadcastLabel}
+            video={videoNode ?? undefined}
+            primary={hasPrimary ? <ToolEmbedFrame title="Embedded experience" src={primaryEmbedSrc!} /> : undefined}
+            secondary={
+              hasSecondary ? <ToolEmbedFrame title="Second embedded experience" src={secondaryEmbedSrc!} /> : undefined
+            }
+            hasVideo={hasVideo}
+            hasPrimary={hasPrimary}
+            hasSecondary={hasSecondary}
+          />
+        </div>
       )}
 
       {hasAnyToolEmbed && !gameEmbed.show && (

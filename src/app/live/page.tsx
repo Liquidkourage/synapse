@@ -54,7 +54,7 @@ export default async function LivePage() {
       : "Host video";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-8">
+    <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-8">
       <div className="shrink-0">
         <h1 className="text-3xl font-semibold text-white">Live now</h1>
         <p className="mt-2 text-zinc-400">
@@ -63,7 +63,7 @@ export default async function LivePage() {
       </div>
 
       {live ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-6">
+        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-6">
           <div className="shrink-0 rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-6">
             <p className="text-sm text-emerald-300/90">
               <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
@@ -95,7 +95,7 @@ export default async function LivePage() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="relative flex h-full min-h-0 flex-col">
             <EventViewerPanels
               storageKey={`live-${live.slug}`}
               broadcastLabel={broadcastLabel}
