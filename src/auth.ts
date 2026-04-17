@@ -111,6 +111,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
           if (authDebug) {
             const n = await prisma.user.count();
             console.log("[auth][debug] no User row after SQL+scan; User.count()=", n);
+            if (n > 0) {
+              const sample = await prisma.user.findMany({ take: 5, select: { email: true } });
+              console.log(
+                "[auth][debug] login email utf8 hex",
+                Buffer.from(email, "utf8").toString("hex"),
+              );
+              for (const row of sample) {
+                const ne = normalizeEmail(row.email);
+                console.log(
+                  "[auth][debug] db email repr",
+                  JSON.stringify(row.email),
+                  "normalizedEq?",
+                  ne === email,
+                  "dbHex",
+                  Buffer.from(row.email, "utf8").toString("hex"),
+                );
+              }
+            }
           }
           return null;
         }
