@@ -1,8 +1,8 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { loginWithCredentials } from "@/actions/login";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
 
 export function LoginForm({
@@ -14,8 +14,7 @@ export function LoginForm({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [err, setErr] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [state, formAction, pending] = useActionState(loginWithCredentials, undefined);
   const [strippedPasswordFromUrl, setStrippedPasswordFromUrl] = useState(false);
 
   /** Passwords must never stay in the query string (history, logs, referrers). */
@@ -28,27 +27,19 @@ export function LoginForm({
     router.replace(qs ? `/login?${qs}` : "/login", { scroll: false });
   }, [searchParams, router]);
 
+  useEffect(() => {
+    if (state?.ok) {
+      const next = safeCallbackUrl(callbackUrl, window.location.origin);
+      router.push(next);
+      router.refresh();
+    }
+  }, [state, callbackUrl, router]);
+
+  const err = state?.ok === false ? state.error : null;
+
   return (
-    <form
-      className="space-y-4"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setErr(null);
-        setPending(true);
-        const fd = new FormData(e.currentTarget);
-        const email = fd.get("email") as string;
-        const password = fd.get("password") as string;
-        const res = await signIn("credentials", { email, password, redirect: false });
-        setPending(false);
-        if (res?.error) {
-          setErr("Invalid credentials.");
-          return;
-        }
-        const next = safeCallbackUrl(callbackUrl, window.location.origin);
-        router.push(next);
-        router.refresh();
-      }}
-    >
+    <form className="space-y-4" action={formAction}>
+      <input type="hidden" name="callbackUrl" value={callbackUrl} />
       {strippedPasswordFromUrl && (
         <p className="rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-sm text-amber-100">
           Passwords can&apos;t be used from the address bar (it isn&apos;t secure). Enter your
