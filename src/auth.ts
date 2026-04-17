@@ -4,6 +4,12 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import type { Role } from "@/generated/prisma";
 
+function coerceCredential(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return undefined;
+}
+
 /** Wrong email/password is expected; Auth.js would log it as [auth][error] and flood production logs. */
 function authLoggerError(error: unknown) {
   if (error instanceof AuthError && error.type === "CredentialsSignin") return;
@@ -63,14 +69,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
       },
       async authorize(credentials) {
         const { prisma } = await import("@/lib/prisma");
-        const rawEmail = credentials?.email as string | undefined;
-        const password = credentials?.password as string | undefined;
+        const rawEmail = coerceCredential(credentials?.email);
+        const password = coerceCredential(credentials?.password);
         const email = rawEmail?.trim().toLowerCase();
-        if (!email || !password) return null;
+        const authDebug =
+          process.env.AUTH_DEBUG === "1" || process.env.AUTH_DEBUG === "true";
+
+        if (authDebug) {
+          console.log("[auth][debug] DATABASE_URL", process.env.DATABASE_URL);
+          console.log(
+            "[auth][debug] emailLen",
+            email?.length ?? 0,
+            "passwordLen",
+            password?.length ?? 0,
+          );
+        }
+
+        if (!email || !password) {
+          if (authDebug) console.log("[auth][debug] missing email or password after coerce");
+          return null;
+        }
+
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) return null;
+        if (!user) {
+          if (authDebug) console.log("[auth][debug] no User row for email");
+          return null;
+        }
+
         const ok = await bcrypt.compare(password, user.passwordHash);
-        if (!ok) return null;
+        if (!ok) {
+          if (authDebug) {
+            console.log("[auth][debug] bcrypt.compare false (hashLen)", user.passwordHash.length);
+          }
+          return null;
+        }
+
+        if (authDebug) console.log("[auth][debug] login ok userId", user.id);
+
         return {
           id: user.id,
           email: user.email,
