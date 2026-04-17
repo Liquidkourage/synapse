@@ -7,7 +7,7 @@ import {
   useGroupRef,
   type Layout,
 } from "react-resizable-panels";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 const LS_PREFIX = "synapse-viewer-layout-v2";
 
@@ -189,13 +189,13 @@ export function ViewerResizableLayout({
   /** Single panel: no Group */
   if (hasVideo && !hasPrimary && !hasSecondary) {
     return (
-      <div className="flex min-h-0 w-full flex-col gap-2">
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
         {showToolbar && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
             Drag panel edges to resize. Use zoom if text feels small.
           </div>
         )}
-        <div className="flex min-h-[min(70vh,640px)] flex-col overflow-hidden rounded-2xl border border-emerald-500/20 bg-black">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-emerald-500/20 bg-black">
           <PanelToolbar label={videoLabel} zoom={zoom.video} onZoom={(z) => setZoom((s) => ({ ...s, video: z }))} />
           <ZoomFrame zoom={zoom.video}>{video}</ZoomFrame>
         </div>
@@ -205,7 +205,7 @@ export function ViewerResizableLayout({
 
   if (!hasVideo && hasPrimary && !hasSecondary) {
     return (
-      <div className="flex min-h-[min(70vh,640px)] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
         <PanelToolbar label={primaryLabel} zoom={zoom.primary} onZoom={(z) => setZoom((s) => ({ ...s, primary: z }))} />
         <ZoomFrame zoom={zoom.primary}>{primary}</ZoomFrame>
       </div>
@@ -214,7 +214,7 @@ export function ViewerResizableLayout({
 
   if (!hasVideo && !hasPrimary && hasSecondary) {
     return (
-      <div className="flex min-h-[min(70vh,640px)] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-black">
         <PanelToolbar
           label={secondaryLabel}
           zoom={zoom.secondary}
@@ -227,20 +227,22 @@ export function ViewerResizableLayout({
 
   if (!hasVideo && hasPrimary && hasSecondary) {
     return (
-      <div className="flex w-full flex-col gap-2">
-        <PresetBar
-          hasPair
-          onPreset={applyPreset}
-          onSwap={() => setEmbedOrder((o) => (o === "primaryFirst" ? "secondaryFirst" : "primaryFirst"))}
-        />
-        <div className="min-h-[min(70vh,640px)] w-full min-w-0">
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
+        <div className="shrink-0">
+          <PresetBar
+            hasPair
+            onPreset={applyPreset}
+            onSwap={() => setEmbedOrder((o) => (o === "primaryFirst" ? "secondaryFirst" : "primaryFirst"))}
+          />
+        </div>
+        <div className="min-h-0 w-full min-w-0 flex-1">
           <Group
             groupRef={embedGroupRef}
             orientation="horizontal"
             id={`${storageKey}-embeds-only`}
             defaultLayout={embedDefault}
             onLayoutChanged={onEmbedLayout}
-            className="h-full min-h-[400px] w-full"
+            className="h-full min-h-[280px] w-full"
           >
             <Panel id="embed-a" defaultSize="50%" minSize={15} className="min-w-0">
               <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-800 bg-black">
@@ -263,24 +265,26 @@ export function ViewerResizableLayout({
 
   /** Video + one or two embeds: vertical + optional horizontal */
   return (
-    <div className="flex w-full flex-col gap-2">
-      <PresetBar
-        hasPair={hasPrimary && hasSecondary}
-        onPreset={applyPreset}
-        onSwap={
-          hasPrimary && hasSecondary
-            ? () => setEmbedOrder((o) => (o === "primaryFirst" ? "secondaryFirst" : "primaryFirst"))
-            : undefined
-        }
-      />
-      <div className="min-h-[min(75vh,720px)] w-full min-w-0 md:min-h-[480px]">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
+      <div className="shrink-0">
+        <PresetBar
+          hasPair={hasPrimary && hasSecondary}
+          onPreset={applyPreset}
+          onSwap={
+            hasPrimary && hasSecondary
+              ? () => setEmbedOrder((o) => (o === "primaryFirst" ? "secondaryFirst" : "primaryFirst"))
+              : undefined
+          }
+        />
+      </div>
+      <div className="min-h-0 w-full min-w-0 flex-1">
         <Group
           groupRef={mainGroupRef}
           orientation="vertical"
           id={`${storageKey}-main`}
           defaultLayout={mainDefault}
           onLayoutChanged={onMainLayout}
-          className="h-full min-h-[420px] w-full"
+          className="h-full min-h-[280px] w-full"
         >
           {hasVideo && (
             <>
@@ -336,7 +340,7 @@ export function ViewerResizableLayout({
           </Panel>
         </Group>
       </div>
-      <p className="text-xs text-zinc-600">
+      <p className="shrink-0 text-xs text-zinc-600">
         Layout is saved in this browser. Drag dividers to resize. Presets adjust video vs embeds; &quot;Big display&quot; widens the
         right column when two embeds are open. Swap flips which side is primary vs secondary.
       </p>

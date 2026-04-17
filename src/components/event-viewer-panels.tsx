@@ -98,7 +98,7 @@ export function EventViewerPanels({
     );
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       {hasAnyToolEmbed && gameEmbed.preview && (
         <p className="text-xs text-amber-400/90">Preview — embeds are public once this event is LIVE.</p>
       )}

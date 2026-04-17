@@ -54,8 +54,8 @@ export default async function LivePage() {
       : "Host video";
 
   return (
-    <div className="space-y-8">
-      <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-8">
+      <div className="shrink-0">
         <h1 className="text-3xl font-semibold text-white">Live now</h1>
         <p className="mt-2 text-zinc-400">
           There is only one spotlight on the network. Here is what is live (or featured) right now.
@@ -63,8 +63,8 @@ export default async function LivePage() {
       </div>
 
       {live ? (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
+          <div className="shrink-0 rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-6">
             <p className="text-sm text-emerald-300/90">
               <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
                 {statusLabel(live.effectiveStatus)}
@@ -95,22 +95,24 @@ export default async function LivePage() {
             </div>
           </div>
 
-          <EventViewerPanels
-            storageKey={`live-${live.slug}`}
-            broadcastLabel={broadcastLabel}
-            broadcastEmbedUrl={live.broadcastEmbedUrl}
-            broadcastIframeSrc={embedSrc}
-            canViewBroadcast={canViewBroadcast}
-            session={session}
-            gameEmbed={gameEmbed}
-            hasAnyToolEmbed={hasAnyToolEmbed}
-            embedUrl={live.embedUrl}
-            secondaryEmbedUrl={live.secondaryEmbedUrl}
-            primaryEmbedSrc={primaryEmbedSrc}
-            secondaryEmbedSrc={secondaryEmbedSrc}
-            externalUrl={live.externalUrl}
-            liveSlug={live.slug}
-          />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <EventViewerPanels
+              storageKey={`live-${live.slug}`}
+              broadcastLabel={broadcastLabel}
+              broadcastEmbedUrl={live.broadcastEmbedUrl}
+              broadcastIframeSrc={embedSrc}
+              canViewBroadcast={canViewBroadcast}
+              session={session}
+              gameEmbed={gameEmbed}
+              hasAnyToolEmbed={hasAnyToolEmbed}
+              embedUrl={live.embedUrl}
+              secondaryEmbedUrl={live.secondaryEmbedUrl}
+              primaryEmbedSrc={primaryEmbedSrc}
+              secondaryEmbedSrc={secondaryEmbedSrc}
+              externalUrl={live.externalUrl}
+              liveSlug={live.slug}
+            />
+          </div>
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 p-12 text-center text-zinc-500">
