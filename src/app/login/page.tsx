@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { headers } from "next/headers";
 import { LoginForm } from "@/components/login-form";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
@@ -28,9 +27,7 @@ export default async function LoginPage({
           Could not sign you in. Check email and password.
         </p>
       )}
-      <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
-        <LoginForm callbackUrl={callbackUrl} initialEmail={initialEmail} />
-      </Suspense>
+      <LoginForm callbackUrl={callbackUrl} initialEmail={initialEmail} />
       <p className="text-center text-sm text-zinc-500">
         New here?{" "}
         <Link href="/signup" className="text-violet-400 hover:underline">

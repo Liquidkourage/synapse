@@ -1,7 +1,7 @@
 "use client";
 
 import { loginWithCredentials } from "@/actions/login";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
 
@@ -13,22 +13,21 @@ export function LoginForm({
   initialEmail?: string;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [state, formAction, pending] = useActionState(loginWithCredentials, undefined);
   const [strippedPasswordFromUrl, setStrippedPasswordFromUrl] = useState(false);
   /** Controlled so fields are not cleared after a failed server action re-render. */
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
 
-  /** Passwords must never stay in the query string (history, logs, referrers). */
+  /** Strip `?password=` from the URL once (avoid useSearchParams — fewer RSC/Suspense edge cases). */
   useEffect(() => {
-    if (!searchParams.has("password")) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("password")) return;
     setStrippedPasswordFromUrl(true);
-    const params = new URLSearchParams(searchParams.toString());
     params.delete("password");
     const qs = params.toString();
     router.replace(qs ? `/login?${qs}` : "/login", { scroll: false });
-  }, [searchParams, router]);
+  }, [router]);
 
   useEffect(() => {
     setEmail(initialEmail);

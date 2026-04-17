@@ -7,6 +7,14 @@ import { safeCallbackUrl } from "@/lib/safe-callback-url";
 
 export type LoginState = { ok: true } | { ok: false; error: string };
 
+function isCredentialsSignin(e: unknown): boolean {
+  if (e instanceof CredentialsSignin) return true;
+  if (e && typeof e === "object" && "type" in e) {
+    return (e as { type: string }).type === "CredentialsSignin";
+  }
+  return false;
+}
+
 export async function loginWithCredentials(
   _prev: LoginState | undefined,
   formData: FormData,
@@ -34,9 +42,10 @@ export async function loginWithCredentials(
     });
     return { ok: true };
   } catch (e) {
-    if (e instanceof CredentialsSignin) {
+    if (isCredentialsSignin(e)) {
       return { ok: false, error: "Invalid credentials." };
     }
-    throw e;
+    console.error("[loginWithCredentials]", e);
+    return { ok: false, error: "Could not sign in. Try again." };
   }
 }
