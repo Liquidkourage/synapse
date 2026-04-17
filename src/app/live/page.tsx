@@ -96,6 +96,7 @@ export default async function LivePage() {
           </div>
 
           <EventViewerPanels
+            storageKey={`live-${live.slug}`}
             broadcastLabel={broadcastLabel}
             broadcastEmbedUrl={live.broadcastEmbedUrl}
             broadcastIframeSrc={embedSrc}

@@ -161,6 +161,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         </div>
         <div className="mt-8">
           <EventViewerPanels
+            storageKey={`event-${event.slug}`}
             broadcastLabel={broadcastLabel}
             broadcastDescription={broadcastDescription}
             broadcastEmbedUrl={event.broadcastEmbedUrl}
