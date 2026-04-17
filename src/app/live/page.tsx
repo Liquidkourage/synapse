@@ -2,13 +2,11 @@ import Link from "next/link";
 import { getPublicLiveEvent } from "@/lib/queries";
 import { statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
-import { BroadcastEmbed } from "@/components/broadcast-embed";
-import { BroadcastRestrictedNotice } from "@/components/broadcast-restricted-notice";
+import { EventViewerPanels } from "@/components/event-viewer-panels";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
-import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 
@@ -49,6 +47,11 @@ export default async function LivePage() {
         session,
       )
     : false;
+
+  const broadcastLabel =
+    live?.broadcastEmbedUrl && isDailyNativeBroadcastUrl(live.broadcastEmbedUrl)
+      ? "Synapse video"
+      : "Host video";
 
   return (
     <div className="space-y-8">
@@ -92,99 +95,21 @@ export default async function LivePage() {
             </div>
           </div>
 
-          {live.broadcastEmbedUrl && (
-            <div className="rounded-2xl border border-emerald-500/20 bg-black p-2">
-              <p className="mb-2 px-2 text-xs font-medium text-emerald-400/90">
-                {isDailyNativeBroadcastUrl(live.broadcastEmbedUrl) ? "Synapse video" : "Host video"}
-              </p>
-              {embedSrc ? (
-                <BroadcastEmbed src={embedSrc} title="Live host video" />
-              ) : !canViewBroadcast ? (
-                <div className="px-2 pb-2">
-                  <BroadcastRestrictedNotice session={session} />
-                </div>
-              ) : (
-                <div className="px-2 pb-2">
-                  <StreamingEmbedUnavailable />
-                </div>
-              )}
-            </div>
-          )}
-
-          {hasAnyToolEmbed && gameEmbed.preview && (
-            <p className="text-xs text-amber-400/90">
-              Preview — embeds are public once this event is LIVE.
-            </p>
-          )}
-
-          {live.embedUrl && gameEmbed.show && primaryEmbedSrc && (
-            <div className="rounded-2xl border border-zinc-800 bg-black p-2">
-              <p className="mb-2 px-2 text-xs font-medium text-zinc-500">Game / tool (primary)</p>
-              <div className="aspect-video w-full overflow-hidden rounded-xl">
-                <iframe
-                  title="Embedded experience"
-                  src={primaryEmbedSrc}
-                  className="h-full w-full border-0"
-                  allow="clipboard-write; fullscreen"
-                />
-              </div>
-              <p className="mt-2 px-2 text-xs text-zinc-500">
-                If an embed is blocked, use the external link on the event page — some hosts disallow iframes.
-              </p>
-            </div>
-          )}
-
-          {live.embedUrl && gameEmbed.show && !primaryEmbedSrc && (
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-200/90">
-              Primary embed URL is not a valid http(s) link.
-            </div>
-          )}
-
-          {live.secondaryEmbedUrl && gameEmbed.show && secondaryEmbedSrc && (
-            <div className="rounded-2xl border border-zinc-800 bg-black p-2">
-              <p className="mb-2 px-2 text-xs font-medium text-zinc-500">Second embed</p>
-              <div className="aspect-video w-full overflow-hidden rounded-xl">
-                <iframe
-                  title="Second embedded experience"
-                  src={secondaryEmbedSrc}
-                  className="h-full w-full border-0"
-                  allow="clipboard-write; fullscreen"
-                />
-              </div>
-            </div>
-          )}
-
-          {live.secondaryEmbedUrl && gameEmbed.show && !secondaryEmbedSrc && (
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-200/90">
-              Second embed URL is not a valid http(s) link.
-            </div>
-          )}
-
-          {hasAnyToolEmbed && !gameEmbed.show && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-500">
-              Embeds appear here during the live window.{" "}
-              {live.externalUrl && (
-                <a
-                  href={live.externalUrl}
-                  className="text-violet-400 hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open game in a new tab
-                </a>
-              )}
-            </div>
-          )}
-
-          {!live.broadcastEmbedUrl && !hasAnyToolEmbed ? (
-            <p className="text-sm text-zinc-500">
-              No embed for this session — open the external tool from the{" "}
-              <Link href={`/events/${live.slug}`} className="text-violet-400 hover:underline">
-                event page
-              </Link>
-              .
-            </p>
-          ) : null}
+          <EventViewerPanels
+            broadcastLabel={broadcastLabel}
+            broadcastEmbedUrl={live.broadcastEmbedUrl}
+            broadcastIframeSrc={embedSrc}
+            canViewBroadcast={canViewBroadcast}
+            session={session}
+            gameEmbed={gameEmbed}
+            hasAnyToolEmbed={hasAnyToolEmbed}
+            embedUrl={live.embedUrl}
+            secondaryEmbedUrl={live.secondaryEmbedUrl}
+            primaryEmbedSrc={primaryEmbedSrc}
+            secondaryEmbedSrc={secondaryEmbedSrc}
+            externalUrl={live.externalUrl}
+            liveSlug={live.slug}
+          />
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 p-12 text-center text-zinc-500">
