@@ -21,6 +21,8 @@ RUN npm ci
 
 COPY . .
 
+RUN chmod +x docker-entrypoint.sh
+
 RUN npm run build
 
 ENV NODE_ENV=production
@@ -28,4 +30,6 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Do not use `npm start` as container PID: npm reports failure on SIGTERM when Railway
+# replaces the deployment. `exec next` receives the signal and exits cleanly.
+CMD ["./docker-entrypoint.sh"]

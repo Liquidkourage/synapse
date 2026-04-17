@@ -10,5 +10,6 @@ dockerfilePath = "Dockerfile"
 # SQLite is a single file — multiple replicas get separate filesystems or break locking.
 # Keep this at 1 or logins will randomly fail (wrong DB / empty User table).
 numReplicas = 1
-startCommand = "npm start"
+# Must match Dockerfile — avoid `npm start` (npm exits non-zero on SIGTERM during deploy replace).
+startCommand = "./docker-entrypoint.sh"
 restartPolicyType = "ON_FAILURE"
