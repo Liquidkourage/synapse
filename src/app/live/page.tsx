@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { getPublicLiveEvent } from "@/lib/queries";
 import { statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
+import { EventChat } from "@/components/event-chat";
 import { EventViewerPanels } from "@/components/event-viewer-panels";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
@@ -12,6 +14,15 @@ import { auth } from "@/auth";
 
 export default async function LivePage() {
   const [live, session] = await Promise.all([getPublicLiveEvent(), auth()]);
+
+  const chatMessages = live
+    ? await prisma.chatMessage.findMany({
+        where: { eventId: live.id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: { user: true },
+      })
+    : [];
 
   const hasAnyToolEmbed = !!(live?.embedUrl || live?.secondaryEmbedUrl);
   const gameEmbed =
@@ -95,24 +106,39 @@ export default async function LivePage() {
             </div>
           </div>
 
-          {/* Full-bleed canvas: break out of max-w-6xl so windows can use the full viewport width */}
-          <div className="relative left-1/2 flex min-h-0 w-screen max-w-none -translate-x-1/2 flex-1 flex-col px-4">
-            <EventViewerPanels
-              storageKey={`live-${live.slug}`}
-              broadcastLabel={broadcastLabel}
-              broadcastEmbedUrl={live.broadcastEmbedUrl}
-              broadcastIframeSrc={embedSrc}
-              canViewBroadcast={canViewBroadcast}
-              session={session}
-              gameEmbed={gameEmbed}
-              hasAnyToolEmbed={hasAnyToolEmbed}
-              embedUrl={live.embedUrl}
-              secondaryEmbedUrl={live.secondaryEmbedUrl}
-              primaryEmbedSrc={primaryEmbedSrc}
-              secondaryEmbedSrc={secondaryEmbedSrc}
-              externalUrl={live.externalUrl}
-              liveSlug={live.slug}
-            />
+          {/* Grid keeps a dedicated chat column from md up; flex row was easy to confuse with canvas padding */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-stretch md:gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] lg:min-h-[min(80vh,720px)]">
+            <div className="min-h-0 min-w-0">
+              <EventViewerPanels
+                storageKey={`live-${live.slug}`}
+                broadcastLabel={broadcastLabel}
+                broadcastEmbedUrl={live.broadcastEmbedUrl}
+                broadcastIframeSrc={embedSrc}
+                canViewBroadcast={canViewBroadcast}
+                session={session}
+                gameEmbed={gameEmbed}
+                hasAnyToolEmbed={hasAnyToolEmbed}
+                embedUrl={live.embedUrl}
+                secondaryEmbedUrl={live.secondaryEmbedUrl}
+                primaryEmbedSrc={primaryEmbedSrc}
+                secondaryEmbedSrc={secondaryEmbedSrc}
+                externalUrl={live.externalUrl}
+                liveSlug={live.slug}
+              />
+            </div>
+            <aside className="flex min-h-0 w-full min-w-0 flex-col border-zinc-800 md:sticky md:top-20 md:max-h-[calc(100dvh-5rem)] md:border-l md:pl-5">
+              <EventChat
+                eventId={live.id}
+                eventSlug={live.slug}
+                layout="sideRail"
+                initialMessages={[...chatMessages].reverse().map((m) => ({
+                  id: m.id,
+                  body: m.body,
+                  createdAt: m.createdAt.toISOString(),
+                  author: m.user?.name ?? m.user?.email ?? m.guestName ?? "Guest",
+                }))}
+              />
+            </aside>
           </div>
         </div>
       ) : (

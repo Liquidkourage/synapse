@@ -24,10 +24,13 @@ export function EventChat({
   eventId,
   eventSlug,
   initialMessages,
+  layout = "default",
 }: {
   eventId: string;
   eventSlug: string;
   initialMessages: Msg[];
+  /** `sideRail`: tall column for live / theater layouts (chat on the right). */
+  layout?: "default" | "sideRail";
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
@@ -60,13 +63,26 @@ export function EventChat({
     listRef.current?.lastElementChild?.scrollIntoView({ block: "nearest" });
   }, [messages]);
 
+  const rail = layout === "sideRail";
+
   return (
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6">
-      <h2 className="text-lg font-medium text-white">Event chat</h2>
-      <p className="mt-1 text-sm text-zinc-500">
-        Lobby chat updates every few seconds — no account needed to read; sign in to post with your name.
+    <section
+      className={
+        rail
+          ? "flex max-h-[min(520px,60vh)] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:h-full md:max-h-none"
+          : "rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6"
+      }
+    >
+      <h2 className={`font-medium text-white ${rail ? "text-base" : "text-lg"}`}>Chat</h2>
+      <p className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}>
+        {rail
+          ? "Updates every few seconds. Sign in to post with your name."
+          : "Lobby chat updates every few seconds — no account needed to read; sign in to post with your name."}
       </p>
-      <ul ref={listRef} className="mt-4 max-h-72 space-y-2 overflow-y-auto text-sm">
+      <ul
+        ref={listRef}
+        className={`mt-3 space-y-2 overflow-y-auto text-sm ${rail ? "min-h-0 flex-1" : "mt-4 max-h-72"}`}
+      >
         {messages.map((m) => (
           <li key={m.id} className="rounded-lg bg-zinc-900/80 px-3 py-2">
             <span className="font-medium text-violet-300">{m.author}</span>
@@ -77,7 +93,7 @@ export function EventChat({
         {messages.length === 0 && <li className="text-zinc-500">Be the first to say hi.</li>}
       </ul>
       <form
-        className="mt-4 flex flex-col gap-2 sm:flex-row"
+        className={`flex flex-col gap-2 sm:flex-row ${rail ? "mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4"}`}
         action={async (fd) => {
           await postEventMessage(fd);
           router.refresh();
