@@ -88,6 +88,7 @@ export async function getBareAccessTokenForIrc() {
       return null;
     }
     cache = { accessToken, expiresAt: Date.now() + val.expires_in * 1000 };
+    console.info("[twitch-bot-token-bridge] access token refreshed via refresh_token");
     return accessToken;
   }
 

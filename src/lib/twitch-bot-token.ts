@@ -133,6 +133,9 @@ export async function getTwitchBotHelixContext(): Promise<{
       console.error("[twitch-bot-token] validate failed after refresh");
       return null;
     }
+    console.info(
+      "[twitch-bot-token] access token refreshed via refresh_token (Helix relay will use new token until cache expires)",
+    );
     const scopes = Array.isArray(val.scopes) ? val.scopes : [];
     cache = {
       accessToken,
