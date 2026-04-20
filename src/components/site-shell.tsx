@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export async function SiteShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
+  const liveFullWidth = pathname === "/live" || pathname.startsWith("/live/");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-zinc-950 text-zinc-100">
@@ -60,7 +64,15 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </header>
-      <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-4 py-8">{children}</main>
+      <main
+        className={
+          liveFullWidth
+            ? "mx-auto flex min-h-0 w-full max-w-none flex-1 flex-col px-3 py-8 sm:px-5 lg:px-6 xl:px-8"
+            : "mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-4 py-8"
+        }
+      >
+        {children}
+      </main>
       <footer className="border-t border-zinc-800 py-6 text-center text-xs text-zinc-500">
         Synapse — network-style trivia discovery. Third-party games, one live moment at a time.
       </footer>

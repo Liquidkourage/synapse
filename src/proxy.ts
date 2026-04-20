@@ -11,6 +11,10 @@ import { getToken } from "next-auth/jwt";
  */
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", path);
+
   const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
 
   const token = secret
@@ -47,17 +51,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 }
 
 export const config = {
   matcher: [
-    "/admin/:path*",
-    "/producer/:path*",
-    "/host/:path*",
-    "/account",
-    "/account/:path*",
-    "/dashboard",
-    "/dashboard/:path*",
+    /** Broad enough for x-pathname on /live; skips static assets */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
