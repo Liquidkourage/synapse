@@ -81,6 +81,7 @@ export function EventEditForm({
           replayUrl: event.replayUrl ?? "",
           resultsSummary: event.resultsSummary ?? "",
           recurrenceNote: event.recurrenceNote ?? "",
+          twitchChannelLogin: event.twitchChannelLogin ?? "",
         }}
       />
       <button
@@ -395,6 +396,21 @@ function FormFields({
         <input
           name="secondaryEmbedUrl"
           defaultValue={d.secondaryEmbedUrl}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-zinc-400">Twitch channel (merged chat, optional)</label>
+        <p className="mt-1 text-xs text-zinc-600">
+          Lowercase login only (e.g. <code className="text-zinc-500">triviaworkshop</code>). When set, run{" "}
+          <code className="text-zinc-500">scripts/twitch-chat-bridge.mjs</code> with{" "}
+          <code className="text-zinc-500">TWITCH_CHAT_INGEST_SECRET</code> to mirror Twitch chat into this event&apos;s
+          Synapse chat.
+        </p>
+        <input
+          name="twitchChannelLogin"
+          placeholder="triviaworkshop"
+          defaultValue={d.twitchChannelLogin}
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>

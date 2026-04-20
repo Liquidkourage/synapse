@@ -4,8 +4,9 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { postEventMessage } from "@/actions/chat";
+import type { ChatMessageClient } from "@/lib/chat-message-dto";
 
-type Msg = { id: string; body: string; createdAt: string; author: string };
+type Msg = ChatMessageClient;
 
 function Submit() {
   const { pending } = useFormStatus();
@@ -46,7 +47,7 @@ export function EventChat({
       try {
         const res = await fetch(`/api/events/${eventId}/chat`, { cache: "no-store" });
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { messages: Msg[] };
+        const data = (await res.json()) as { messages: ChatMessageClient[] };
         setMessages(data.messages);
       } catch {
         /* ignore */
@@ -76,15 +77,23 @@ export function EventChat({
       <h2 className={`font-medium text-white ${rail ? "text-base" : "text-lg"}`}>Chat</h2>
       <p className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}>
         {rail
-          ? "Updates every few seconds. Sign in to post with your name."
-          : "Lobby chat updates every few seconds — no account needed to read; sign in to post with your name."}
+          ? "Synapse + Twitch (when configured) in one feed. Sign in to post here with your name."
+          : "Synapse + Twitch (when configured) in one feed — no account needed to read; sign in to post on Synapse with your name."}
       </p>
       <ul
         ref={listRef}
         className={`mt-3 space-y-2 overflow-y-auto text-sm ${rail ? "min-h-0 flex-1" : "mt-4 max-h-72"}`}
       >
         {messages.map((m) => (
-          <li key={m.id} className="rounded-lg bg-zinc-900/80 px-3 py-2">
+          <li
+            key={m.id}
+            className={`rounded-lg px-3 py-2 ${m.source === "twitch" ? "border border-purple-900/40 bg-purple-950/30" : "bg-zinc-900/80"}`}
+          >
+            {m.source === "twitch" && (
+              <span className="mr-2 inline-block rounded bg-purple-600/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-200">
+                Twitch
+              </span>
+            )}
             <span className="font-medium text-violet-300">{m.author}</span>
             <span className="text-zinc-600"> · </span>
             <span className="text-zinc-300">{m.body}</span>
@@ -99,7 +108,7 @@ export function EventChat({
           router.refresh();
           const res = await fetch(`/api/events/${eventId}/chat`, { cache: "no-store" });
           if (res.ok) {
-            const data = (await res.json()) as { messages: Msg[] };
+            const data = (await res.json()) as { messages: ChatMessageClient[] };
             setMessages(data.messages);
           }
         }}

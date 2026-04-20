@@ -14,6 +14,7 @@ import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
+import { toChatMessageClient } from "@/lib/chat-message-dto";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -78,7 +79,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       where: { eventId: event.id },
       orderBy: { createdAt: "desc" },
       take: 50,
-      include: { user: true },
+      include: { user: { select: { name: true, email: true } } },
     }),
     prisma.eventAttendance.count({ where: { eventId: event.id } }),
     session?.user?.id
@@ -206,12 +207,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       <EventChat
         eventId={event.id}
         eventSlug={event.slug}
-        initialMessages={[...messages].reverse().map((m) => ({
-          id: m.id,
-          body: m.body,
-          createdAt: m.createdAt.toISOString(),
-          author: m.user?.name ?? m.user?.email ?? m.guestName ?? "Guest",
-        }))}
+        initialMessages={[...messages].reverse().map((m) => toChatMessageClient(m))}
       />
     </div>
   );

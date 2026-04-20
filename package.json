@@ -14,7 +14,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "twitch-bridge": "node scripts/twitch-chat-bridge.mjs"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.6.0",
@@ -29,6 +30,7 @@
     "react-dom": "19.2.4",
     "react-rnd": "^10.5.3",
     "resend": "^6.10.0",
+    "tmi.js": "^1.8.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -13,6 +13,7 @@ import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
+import { toChatMessageClient } from "@/lib/chat-message-dto";
 
 export default async function LivePage() {
   const [live, session] = await Promise.all([getPublicLiveEvent(), auth()]);
@@ -135,12 +136,7 @@ export default async function LivePage() {
                 eventId={live.id}
                 eventSlug={live.slug}
                 layout="sideRail"
-                initialMessages={[...chatMessages].reverse().map((m) => ({
-                  id: m.id,
-                  body: m.body,
-                  createdAt: m.createdAt.toISOString(),
-                  author: m.user?.name ?? m.user?.email ?? m.guestName ?? "Guest",
-                }))}
+                initialMessages={[...chatMessages].reverse().map((m) => toChatMessageClient(m))}
               />
             </aside>
           </div>

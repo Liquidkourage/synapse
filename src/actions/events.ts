@@ -43,6 +43,7 @@ const eventFields = z.object({
   resultsSummary: z.preprocess(emptyToUndef, z.string().max(8000).optional()),
   recurrenceNote: z.preprocess(emptyToUndef, z.string().max(500).optional()),
   producerId: z.preprocess(emptyToUndef, z.string().optional()),
+  twitchChannelLogin: z.preprocess(emptyToUndef, z.string().max(80).optional()),
 });
 
 function parseForm(formData: FormData) {
@@ -100,6 +101,7 @@ export async function createEvent(formData: FormData) {
       replayUrl: ensureHttpUrl(parsed.data.replayUrl) ?? null,
       resultsSummary: parsed.data.resultsSummary || null,
       recurrenceNote: parsed.data.recurrenceNote || null,
+      twitchChannelLogin: parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
     },
   });
 
@@ -161,6 +163,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
       replayUrl: ensureHttpUrl(parsed.data.replayUrl) ?? null,
       resultsSummary: parsed.data.resultsSummary || null,
       recurrenceNote: parsed.data.recurrenceNote || null,
+      twitchChannelLogin: parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
       ...(isProducerOrAbove(session.user.role) && parsed.data.producerId
         ? { producerId: parsed.data.producerId }
         : {}),

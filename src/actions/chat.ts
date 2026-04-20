@@ -30,6 +30,7 @@ export async function postEventMessage(formData: FormData) {
       userId: session?.user?.id,
       guestName: session?.user ? undefined : guestName?.trim() || "Guest",
       body: body.trim(),
+      chatSource: "synapse",
     },
   });
 

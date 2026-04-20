@@ -115,6 +115,8 @@ model Event {
   broadcastStreamingMode Boolean @default(true)
   integrationType String?
   instructions    String?
+  /// Twitch channel login (lowercase, e.g. triviaworkshop) for merged chat — optional; run scripts/twitch-chat-bridge.mjs with ingest secret
+  twitchChannelLogin String?
 
   coverImageUrl  String?
   bannerImageUrl String?
@@ -201,10 +203,16 @@ model ChatMessage {
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
-  /// Guest handle when userId is null
+  /// Guest handle when userId is null; for Twitch merge, viewer display name
   guestName String?
   body      String
   createdAt DateTime @default(now())
+  /// synapse | twitch
+  chatSource        String  @default("synapse")
+  /// Twitch message id (or stable id from bridge) for deduplication
+  externalDedupeKey String?
+
+  @@unique([eventId, externalDedupeKey])
 }
 
 model NotificationPreference {
