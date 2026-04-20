@@ -69,7 +69,7 @@ export default async function LivePage() {
       : "Host video";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-5">
+    <div className="flex min-h-0 min-h-[50dvh] flex-1 flex-col gap-4 lg:gap-5">
       <div className="shrink-0">
         <h1 className="text-2xl font-semibold text-white sm:text-3xl">Live now</h1>
         <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-base">
