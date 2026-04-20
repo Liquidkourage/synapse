@@ -10,6 +10,7 @@ dockerfilePath = "Dockerfile"
 # SQLite is a single file — multiple replicas get separate filesystems or break locking.
 # Keep this at 1 or logins will randomly fail (wrong DB / empty User table).
 numReplicas = 1
-# Must match Dockerfile — avoid `npm start` (npm exits non-zero on SIGTERM during deploy replace).
-startCommand = "./docker-entrypoint.sh"
+# Do not set startCommand here — it locks Railway’s “Custom Start Command” UI for every service.
+# Web: Dockerfile CMD runs ./docker-entrypoint.sh (Prisma + next start).
+# Twitch bridge service: set in Railway only — e.g. npm run twitch-bridge
 restartPolicyType = "ON_FAILURE"

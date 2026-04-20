@@ -193,11 +193,15 @@ Common steps:
 
 **Note:** Uploaded files under `public/uploads` are **ephemeral** on default Railway disks unless you add storage.
 
+**Dockerfile deploy:** The image `CMD` runs `./docker-entrypoint.sh` (Prisma sync + `next start`). `railway.toml` does **not** set `startCommand` so Railway’s per-service **Custom Start Command** stays editable.
+
+**Twitch chat bridge** (separate Railway service, same repo): set **Start Command** to `npm run twitch-bridge` and the bridge env vars — do not use `./docker-entrypoint.sh` on that service.
+
 ---
 
 ## 13. Known limitations / future work
 
-- No realtime chat; refresh to see new messages  
+- Chat updates via polling (not WebSocket)  
 - No email provider wired (console stub)  
 - Payments/tickets are placeholder rows only  
 - No public user profile URLs  
