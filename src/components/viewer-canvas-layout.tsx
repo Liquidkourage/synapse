@@ -18,6 +18,38 @@ type PanelGeom = {
 
 type Stored = Partial<Record<PanelId, PanelGeom>>;
 
+const CANVAS_MARGIN = 10;
+const PANEL_MIN_W = 260;
+const PANEL_MIN_H = 140;
+
+/** Keep floating panels inside the canvas (localStorage may hold sizes from a wider/taller window). */
+function clampGeom(g: PanelGeom, canvasW: number, canvasH: number): PanelGeom {
+  const m = CANVAS_MARGIN;
+  const maxW = Math.max(PANEL_MIN_W, canvasW - m * 2);
+  const maxH = Math.max(PANEL_MIN_H, canvasH - m * 2);
+  let { x, y, width, height, z } = g;
+  width = Math.min(Math.max(PANEL_MIN_W, width), maxW);
+  height = Math.min(Math.max(PANEL_MIN_H, height), maxH);
+  x = Math.max(m, Math.min(x, canvasW - width - m));
+  y = Math.max(m, Math.min(y, canvasH - height - m));
+  return { x, y, width, height, z };
+}
+
+function clampStored(
+  stored: Stored,
+  canvasW: number,
+  canvasH: number,
+  hasVideo: boolean,
+  hasPrimary: boolean,
+  hasSecondary: boolean,
+): Stored {
+  const out: Stored = { ...stored };
+  if (hasVideo && out.video) out.video = clampGeom(out.video, canvasW, canvasH);
+  if (hasPrimary && out.primary) out.primary = clampGeom(out.primary, canvasW, canvasH);
+  if (hasSecondary && out.secondary) out.secondary = clampGeom(out.secondary, canvasW, canvasH);
+  return out;
+}
+
 function loadStored(key: string): Stored {
   if (typeof window === "undefined") return {};
   try {
@@ -100,7 +132,7 @@ function mergeSavedWithDefaults(
   if (hasVideo) out.video = saved.video ?? d.video;
   if (hasPrimary) out.primary = saved.primary ?? d.primary;
   if (hasSecondary) out.secondary = saved.secondary ?? d.secondary;
-  return out;
+  return clampStored(out, w, h, hasVideo, hasPrimary, hasSecondary);
 }
 
 function PanelToolbar({
@@ -274,7 +306,7 @@ export function ViewerCanvasLayout({
   secondaryLabel?: string;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const initOnceRef = useRef(false);
+  const layoutInitRef = useRef(false);
   const [mounted, setMounted] = useState(false);
   const [geoms, setGeoms] = useState<Stored>({});
   const [zoom, setZoom] = useState({ video: 1, primary: 1, secondary: 1 });
@@ -284,7 +316,7 @@ export function ViewerCanvasLayout({
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
-    initOnceRef.current = false;
+    layoutInitRef.current = false;
     setGeoms({});
   }, [storageKey]);
 
@@ -297,37 +329,40 @@ export function ViewerCanvasLayout({
     [storageKey],
   );
 
-  const initFromCanvas = useCallback(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
-    if (w < 80 || h < 80) return;
-
-    const saved = loadStored(storageKey);
-    const merged = mergeSavedWithDefaults(saved, w, h, hasVideo, hasPrimary, hasSecondary);
-    applyLayout(merged);
-  }, [storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
-
   useEffect(() => {
     if (!mounted) return;
     const el = canvasRef.current;
     if (!el) return;
 
-    const tryInit = () => {
-      if (initOnceRef.current) return;
-      const rect = el.getBoundingClientRect();
-      if (rect.width < 80 || rect.height < 80) return;
-      initOnceRef.current = true;
-      initFromCanvas();
+    const run = (w: number, h: number) => {
+      if (w < 80 || h < 80) return;
+      if (!layoutInitRef.current) {
+        const saved = loadStored(storageKey);
+        const merged = mergeSavedWithDefaults(saved, w, h, hasVideo, hasPrimary, hasSecondary);
+        applyLayout(merged);
+        layoutInitRef.current = true;
+        return;
+      }
+      setGeoms((prev) => {
+        const clamped = clampStored(prev, w, h, hasVideo, hasPrimary, hasSecondary);
+        const before = JSON.stringify(prev);
+        const after = JSON.stringify(clamped);
+        if (before === after) return prev;
+        saveStored(storageKey, clamped);
+        return clamped;
+      });
     };
 
-    tryInit();
-    const ro = new ResizeObserver(tryInit);
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (cr) run(cr.width, cr.height);
+    });
     ro.observe(el);
+    const r = el.getBoundingClientRect();
+    run(r.width, r.height);
+
     return () => ro.disconnect();
-  }, [mounted, initFromCanvas, storageKey]);
+  }, [mounted, storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
 
   /** Raise stacking order on any mouse interaction with the window chrome (title, resize, edges). */
   const bringToFront = useCallback(
@@ -365,7 +400,7 @@ export function ViewerCanvasLayout({
     if (rect.width < 80 || rect.height < 80) return;
     const merged = mergeSavedWithDefaults({}, rect.width, rect.height, hasVideo, hasPrimary, hasSecondary);
     applyLayout(merged);
-    initOnceRef.current = true;
+    layoutInitRef.current = true;
   }, [storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
 
   const onDrag = useCallback(
@@ -497,22 +532,22 @@ export function ViewerCanvasLayout({
 
   if (!mounted) {
     return (
-      <div className="flex min-h-[min(85dvh,calc(100dvh-12rem))] w-full flex-col gap-2">
-        <div className="min-h-[320px] w-full animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900/50" />
+      <div className="flex h-full min-h-[min(40vh,320px)] w-full min-w-0 flex-col gap-2">
+        <div className="min-h-[240px] w-full min-w-0 flex-1 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900/50" />
         {footer}
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-2">
       <div className="shrink-0 text-xs text-zinc-500">
         Click the toolbar to focus a window. Drag the title to move; drag edges or corners to resize. While dragging or
         resizing, embeds are briefly non-interactive so the cursor is not captured by iframes.
       </div>
       <div
         ref={canvasRef}
-        className="relative min-h-[min(85dvh,calc(100dvh-12rem))] w-full flex-1 overflow-auto rounded-2xl border border-zinc-800/90 bg-[radial-gradient(ellipse_at_top,_rgba(39,39,42,0.5),_transparent_60%),linear-gradient(180deg,_rgb(9,9,11)_0%,_rgb(24,24,27)_100%)] ring-1 ring-zinc-700/30"
+        className="relative h-full min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-2xl border border-zinc-800/90 bg-[radial-gradient(ellipse_at_top,_rgba(39,39,42,0.5),_transparent_60%),linear-gradient(180deg,_rgb(9,9,11)_0%,_rgb(24,24,27)_100%)] ring-1 ring-zinc-700/30"
       >
         {hasVideo && renderPanel("video", videoLabel, video, zoom.video, setVideoZoom)}
         {hasPrimary && renderPanel("primary", primaryLabel, primary, zoom.primary, setPrimaryZoom)}

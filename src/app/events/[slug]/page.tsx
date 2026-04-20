@@ -159,7 +159,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
             Network live page
           </Link>
         </div>
-        <div className="mt-8">
+        <div className="mt-8 flex min-h-[min(50dvh,480px)] flex-col">
           <EventViewerPanels
             storageKey={`event-${event.slug}`}
             broadcastLabel={broadcastLabel}

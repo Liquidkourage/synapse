@@ -65,17 +65,17 @@ export default async function LivePage() {
       : "Host video";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-8">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-5">
       <div className="shrink-0">
-        <h1 className="text-3xl font-semibold text-white">Live now</h1>
-        <p className="mt-2 text-zinc-400">
+        <h1 className="text-2xl font-semibold text-white sm:text-3xl">Live now</h1>
+        <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-base">
           There is only one spotlight on the network. Here is what is live (or featured) right now.
         </p>
       </div>
 
       {live ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-6">
-          <div className="shrink-0 rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-5">
+          <div className="shrink-0 rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4 sm:p-6">
             <p className="text-sm text-emerald-300/90">
               <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
                 {statusLabel(live.effectiveStatus)}
@@ -84,7 +84,7 @@ export default async function LivePage() {
                 <LocalDateTime iso={live.startAt.toISOString()} />
               </span>
             </p>
-            <h2 className="mt-3 text-3xl font-semibold text-white">{live.title}</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-white sm:mt-3 sm:text-3xl">{live.title}</h2>
             <p className="mt-2 text-zinc-400">{live.shortDescription}</p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
@@ -106,9 +106,9 @@ export default async function LivePage() {
             </div>
           </div>
 
-          {/* Grid keeps a dedicated chat column from md up; flex row was easy to confuse with canvas padding */}
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-stretch md:gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] lg:min-h-[min(80vh,720px)]">
-            <div className="min-h-0 min-w-0">
+          {/* Canvas gets max width; chat stays a fixed narrow rail */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-4 md:grid-cols-[minmax(0,1fr)_17.5rem] md:items-stretch md:gap-4 lg:gap-5 xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="flex h-full min-h-0 min-w-0 flex-col">
               <EventViewerPanels
                 storageKey={`live-${live.slug}`}
                 broadcastLabel={broadcastLabel}
