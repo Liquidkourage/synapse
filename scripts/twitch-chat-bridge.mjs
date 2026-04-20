@@ -28,9 +28,17 @@ const oauth = process.env.TWITCH_BOT_OAUTH?.trim();
 const botUser = process.env.TWITCH_BOT_USERNAME?.trim();
 const pollMs = Math.max(15_000, Number(process.env.TWITCH_BRIDGE_POLL_MS) || 45_000);
 
-if (!channelsUrl || !ingestUrl || !secret || !oauth || !botUser) {
+const required = [
+  ["TWITCH_BRIDGE_CHANNELS_URL", channelsUrl],
+  ["TWITCH_BRIDGE_INGEST_URL", ingestUrl],
+  ["TWITCH_CHAT_INGEST_SECRET", secret],
+  ["TWITCH_BOT_OAUTH", oauth],
+  ["TWITCH_BOT_USERNAME", botUser],
+];
+const missing = required.filter(([, v]) => !v).map(([k]) => k);
+if (missing.length) {
   console.error(
-    "Missing env. Need: TWITCH_BRIDGE_CHANNELS_URL, TWITCH_BRIDGE_INGEST_URL, TWITCH_CHAT_INGEST_SECRET, TWITCH_BOT_OAUTH, TWITCH_BOT_USERNAME",
+    `Missing env (${missing.join(", ")}). All required: ${required.map(([k]) => k).join(", ")}`,
   );
   process.exit(1);
 }
