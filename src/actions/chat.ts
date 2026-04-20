@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { relaySynapseChatToTwitch } from "@/lib/twitch-send-chat";
 import { z } from "zod";
 
 const schema = z.object({
@@ -33,6 +34,29 @@ export async function postEventMessage(formData: FormData) {
       chatSource: "synapse",
     },
   });
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { twitchChannelLogin: true },
+  });
+  const twitchLogin = event?.twitchChannelLogin?.trim();
+  if (twitchLogin) {
+    let authorLabel = "Guest";
+    if (session?.user?.id) {
+      const u = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, email: true },
+      });
+      authorLabel = u?.name?.trim() || u?.email?.trim() || "User";
+    } else {
+      authorLabel = guestName?.trim() || "Guest";
+    }
+    void relaySynapseChatToTwitch({
+      twitchChannelLogin: twitchLogin,
+      authorLabel,
+      body: body.trim(),
+    });
+  }
 
   revalidatePath(`/events/${eventSlug}`);
 }

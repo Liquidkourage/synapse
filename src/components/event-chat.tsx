@@ -77,8 +77,8 @@ export function EventChat({
       <h2 className={`font-medium text-white ${rail ? "text-base" : "text-lg"}`}>Chat</h2>
       <p className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}>
         {rail
-          ? "Synapse + Twitch (when configured) in one feed. Sign in to post here with your name."
-          : "Synapse + Twitch (when configured) in one feed — no account needed to read; sign in to post on Synapse with your name."}
+          ? "Synapse + Twitch (when configured) in one feed; Synapse posts can mirror to Twitch as the bot. Sign in to post with your name."
+          : "Synapse + Twitch (when configured) in one feed — no account needed to read; sign in to post on Synapse with your name. With Twitch merged chat, Synapse lines can appear in Twitch as the bot."}
       </p>
       <ul
         ref={listRef}

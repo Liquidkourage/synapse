@@ -6,7 +6,7 @@
  *
  * Required env:
  *   TWITCH_BOT_USERNAME
- *   TWITCH_BOT_OAUTH          — oauth:… token for the bot (chat:read / read chat)
+ *   TWITCH_BOT_OAUTH          — oauth:… token for the bot (chat:read; web relay also uses user:write:chat)
  *   TWITCH_CHAT_INGEST_SECRET — same as server (Bearer for API + ingest)
  *   TWITCH_BRIDGE_CHANNELS_URL — GET, e.g. https://yoursite.com/api/integrations/twitch-chat/channels
  *   TWITCH_BRIDGE_INGEST_URL   — POST, e.g. https://yoursite.com/api/integrations/twitch-chat/ingest

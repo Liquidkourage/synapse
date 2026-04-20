@@ -195,7 +195,7 @@ Common steps:
 
 **Dockerfile deploy:** The image `CMD` runs `./docker-entrypoint.sh` (Prisma sync + `next start`). `railway.toml` does **not** set `startCommand` so Railway’s per-service **Custom Start Command** stays editable.
 
-**Twitch chat bridge** (separate Railway service, same repo): set **Start Command** to `npm run twitch-bridge` and the bridge env vars — do not use `./docker-entrypoint.sh` on that service.
+**Twitch chat bridge** (separate Railway service, same repo): set **Start Command** to `npm run twitch-bridge` and the bridge env vars — do not use `./docker-entrypoint.sh` on that service. The **web** service needs the same `TWITCH_BOT_OAUTH` with **`user:write:chat`** (in addition to `chat:read`) so Synapse chat lines can be sent to Twitch via Helix; regenerate the bot token if you only had read scope.
 
 ---
 
