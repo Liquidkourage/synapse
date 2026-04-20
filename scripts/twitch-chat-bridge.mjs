@@ -6,25 +6,26 @@
  *
  * Required env:
  *   TWITCH_BOT_USERNAME
- *   TWITCH_BOT_OAUTH          — oauth:… token for the bot (chat:read; web relay also uses user:write:chat)
+ *   TWITCH_BOT_OAUTH          — seed access token (chat:read; refreshed if refresh env set)
  *   TWITCH_CHAT_INGEST_SECRET — same as server (Bearer for API + ingest)
  *   TWITCH_BRIDGE_CHANNELS_URL — GET, e.g. https://yoursite.com/api/integrations/twitch-chat/channels
  *   TWITCH_BRIDGE_INGEST_URL   — POST, e.g. https://yoursite.com/api/integrations/twitch-chat/ingest
+ *
+ * Recommended (long-running without manual token paste every ~4h):
+ *   TWITCH_BOT_REFRESH_TOKEN, TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET — same Twitch app as OAuth exchange
  *
  * Optional:
  *   TWITCH_BRIDGE_POLL_MS — default 45000 (refresh channel list / join-part)
  *
  * Run: npm run twitch-bridge
- *
- * Railway: one worker service; no per-host env. Hosts only set **Twitch channel** on their event in Synapse.
  */
 
 import tmi from "tmi.js";
+import { getBareAccessTokenForIrc } from "./twitch-bot-token-bridge.mjs";
 
 const channelsUrl = process.env.TWITCH_BRIDGE_CHANNELS_URL?.trim();
 const ingestUrl = process.env.TWITCH_BRIDGE_INGEST_URL?.trim();
 const secret = process.env.TWITCH_CHAT_INGEST_SECRET?.trim();
-const oauth = process.env.TWITCH_BOT_OAUTH?.trim();
 const botUser = process.env.TWITCH_BOT_USERNAME?.trim();
 const pollMs = Math.max(15_000, Number(process.env.TWITCH_BRIDGE_POLL_MS) || 45_000);
 
@@ -32,7 +33,7 @@ const required = [
   ["TWITCH_BRIDGE_CHANNELS_URL", channelsUrl],
   ["TWITCH_BRIDGE_INGEST_URL", ingestUrl],
   ["TWITCH_CHAT_INGEST_SECRET", secret],
-  ["TWITCH_BOT_OAUTH", oauth],
+  ["TWITCH_BOT_OAUTH", process.env.TWITCH_BOT_OAUTH?.trim()],
   ["TWITCH_BOT_USERNAME", botUser],
 ];
 const missing = required.filter(([, v]) => !v).map(([k]) => k);
@@ -43,10 +44,20 @@ if (missing.length) {
   process.exit(1);
 }
 
+/** @type {import("tmi.js").Client | null} */
+let client = null;
+/** @type {string} */
+let currentBareToken = "";
+
 /** @type {Map<string, string>} */
 let channelToEvent = new Map();
 /** @type {Set<string>} */
 let joined = new Set();
+
+function ircPassword(oauthBare) {
+  const b = oauthBare.trim();
+  return b.toLowerCase().startsWith("oauth:") ? b : `oauth:${b}`;
+}
 
 async function fetchTargets() {
   const res = await fetch(channelsUrl, {
@@ -62,46 +73,61 @@ async function fetchTargets() {
     .map((x) => ({ channel: x.channel.replace(/^#/, "").trim().toLowerCase(), eventId: x.eventId.trim() }));
 }
 
-const client = new tmi.Client({
-  options: { skipUpdatingEmotesets: true },
-  connection: { reconnect: true, secure: true },
-  identity: { username: botUser, password: oauth.startsWith("oauth:") ? oauth : `oauth:${oauth}` },
-  channels: [],
-});
+function createClient(oauthBare) {
+  return new tmi.Client({
+    options: { skipUpdatingEmotesets: true },
+    connection: { reconnect: true, secure: true },
+    identity: { username: botUser, password: ircPassword(oauthBare) },
+    channels: [],
+  });
+}
 
-client.on("message", async (channel, tags, message, self) => {
-  if (self) return;
-  const ch = channel.replace(/^#/, "").toLowerCase();
-  const eventId = channelToEvent.get(ch);
-  if (!eventId) return;
+function attachHandlers(cl) {
+  cl.on("message", async (channel, tags, message, self) => {
+    if (self) return;
+    const ch = channel.replace(/^#/, "").toLowerCase();
+    const eventId = channelToEvent.get(ch);
+    if (!eventId) return;
 
-  const externalId = tags.id || `${tags["tmi-sent-ts"] ?? ""}-${tags["user-id"] ?? ""}-${message.slice(0, 32)}`;
-  const author = tags["display-name"] || tags.username || "unknown";
-  try {
-    const res = await fetch(ingestUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${secret}`,
-      },
-      body: JSON.stringify({
-        eventId,
-        channel: ch,
-        externalId,
-        author,
-        body: message,
-      }),
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      console.error("[ingest]", res.status, t.slice(0, 200));
+    const externalId = tags.id || `${tags["tmi-sent-ts"] ?? ""}-${tags["user-id"] ?? ""}-${message.slice(0, 32)}`;
+    const author = tags["display-name"] || tags.username || "unknown";
+    try {
+      const res = await fetch(ingestUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify({
+          eventId,
+          channel: ch,
+          externalId,
+          author,
+          body: message,
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        console.error("[ingest]", res.status, t.slice(0, 200));
+      }
+    } catch (e) {
+      console.error("[ingest] fetch failed", e);
     }
-  } catch (e) {
-    console.error("[ingest] fetch failed", e);
-  }
-});
+  });
+
+  cl.on("connected", async () => {
+    console.log("[twitch-chat-bridge] IRC connected as", botUser);
+    try {
+      await syncJoinState();
+    } catch (e) {
+      console.error("[twitch-chat-bridge] initial sync failed", e);
+    }
+  });
+}
 
 async function syncJoinState() {
+  if (!client) return;
+
   const targets = await fetchTargets();
   channelToEvent = new Map(targets.map((t) => [t.channel, t.eventId]));
   const want = new Set(targets.map((t) => t.channel));
@@ -133,20 +159,45 @@ async function syncJoinState() {
   );
 }
 
-client.on("connected", async () => {
-  console.log("[twitch-chat-bridge] IRC connected as", botUser);
-  try {
-    await syncJoinState();
-  } catch (e) {
-    console.error("[twitch-chat-bridge] initial sync failed", e);
+async function connectOnce() {
+  const token = await getBareAccessTokenForIrc();
+  if (!token) {
+    throw new Error("Could not obtain Twitch access token (validate + optional refresh)");
   }
-});
+
+  if (client && token === currentBareToken) {
+    return;
+  }
+
+  if (client) {
+    try {
+      await client.disconnect();
+    } catch {
+      /* ignore */
+    }
+    joined = new Set();
+  }
+
+  currentBareToken = token;
+  client = createClient(token);
+  attachHandlers(client);
+  await client.connect();
+}
+
+(async () => {
+  try {
+    await connectOnce();
+  } catch (e) {
+    console.error(e);
+    process.exit(1);
+  }
+})();
 
 setInterval(() => {
   syncJoinState().catch((e) => console.error("[twitch-chat-bridge] poll failed", e));
 }, pollMs);
 
-client.connect().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+/** Re-check token (refresh ~4h); reconnect IRC when access token string changes */
+setInterval(() => {
+  connectOnce().catch((e) => console.error("[twitch-chat-bridge] token/connect check failed", e));
+}, 45 * 60 * 1000);

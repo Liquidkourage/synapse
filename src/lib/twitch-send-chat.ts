@@ -1,18 +1,13 @@
 /**
  * Relay Synapse chat lines to Twitch via Helix Send Chat Message.
- * Requires TWITCH_BOT_OAUTH on the web process (same bot as the IRC bridge).
- * Token must include scope: user:write:chat (regenerate OAuth if you only had chat:read).
+ * Uses getTwitchBotHelixContext() (validate + optional refresh_token rotation).
  *
  * Bot-sent lines are ignored by twitch-chat-bridge.mjs (`self` on tmi.js).
  */
 
-const TWITCH_MSG_MAX = 500;
+import { getTwitchBotHelixContext } from "@/lib/twitch-bot-token";
 
-function bearerToken(raw: string): string {
-  const t = raw.trim();
-  if (t.toLowerCase().startsWith("oauth:")) return t.slice(6);
-  return t;
-}
+const TWITCH_MSG_MAX = 500;
 
 /** Bot name in Twitch already marks the source (e.g. SynapseChat); no extra [Synapse] tag. */
 function formatRelayLine(authorLabel: string, body: string): string {
@@ -29,27 +24,14 @@ export async function relaySynapseChatToTwitch(params: {
   authorLabel: string;
   body: string;
 }): Promise<void> {
-  const raw = process.env.TWITCH_BOT_OAUTH?.trim();
-  if (!raw) return;
-
-  const token = bearerToken(raw);
   const login = params.twitchChannelLogin.trim().toLowerCase();
   if (!login) return;
 
   try {
-    const valRes = await fetch("https://id.twitch.tv/oauth2/validate", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!valRes.ok) return;
-    const val = (await valRes.json()) as {
-      client_id?: string;
-      user_id?: string;
-      scopes?: string[];
-    };
-    const clientId = val.client_id?.trim();
-    const senderId = val.user_id?.trim();
-    if (!clientId || !senderId) return;
-    if (Array.isArray(val.scopes) && val.scopes.length > 0 && !val.scopes.includes("user:write:chat")) {
+    const ctx = await getTwitchBotHelixContext();
+    if (!ctx) return;
+
+    if (ctx.scopes.length > 0 && !ctx.scopes.includes("user:write:chat")) {
       console.error(
         "[twitch-send-chat] Token missing user:write:chat; regenerate the bot OAuth token with that scope.",
       );
@@ -60,8 +42,8 @@ export async function relaySynapseChatToTwitch(params: {
       `https://api.twitch.tv/helix/users?login=${encodeURIComponent(login)}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
-          "Client-Id": clientId,
+          Authorization: `Bearer ${ctx.accessToken}`,
+          "Client-Id": ctx.clientId,
         },
       },
     );
@@ -77,13 +59,13 @@ export async function relaySynapseChatToTwitch(params: {
     const sendRes = await fetch("https://api.twitch.tv/helix/chat/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
-        "Client-Id": clientId,
+        Authorization: `Bearer ${ctx.accessToken}`,
+        "Client-Id": ctx.clientId,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         broadcaster_id: broadcasterId,
-        sender_id: senderId,
+        sender_id: ctx.userId,
         message,
       }),
     });
