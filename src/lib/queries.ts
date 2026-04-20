@@ -48,6 +48,39 @@ export async function getPublicLiveEvent(): Promise<
   return null;
 }
 
+/**
+ * Live events that have a Twitch channel set — for the multi-tenant chat bridge.
+ * One event per Twitch login (earliest startAt wins if duplicates).
+ */
+export async function getTwitchChatBridgeTargets(): Promise<{ eventId: string; channel: string }[]> {
+  const now = new Date();
+  const events = await prisma.event.findMany({
+    where: {
+      twitchChannelLogin: { not: null },
+      status: { notIn: ["DRAFT", "CANCELLED"] },
+    },
+  });
+
+  const liveRows: { id: string; channel: string; startAt: Date }[] = [];
+  for (const ev of events) {
+    const login = ev.twitchChannelLogin?.trim().toLowerCase();
+    if (!login) continue;
+    if (getEffectiveEventStatus(ev, now) !== "LIVE") continue;
+    liveRows.push({ id: ev.id, channel: login, startAt: ev.startAt });
+  }
+
+  liveRows.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+
+  const byChannel = new Map<string, string>();
+  for (const row of liveRows) {
+    if (!byChannel.has(row.channel)) {
+      byChannel.set(row.channel, row.id);
+    }
+  }
+
+  return Array.from(byChannel.entries()).map(([channel, eventId]) => ({ channel, eventId }));
+}
+
 export async function getUpcomingEvents(limit = 8) {
   const now = new Date();
   return prisma.event.findMany({

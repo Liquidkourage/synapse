@@ -402,10 +402,10 @@ function FormFields({
       <div>
         <label className="block text-sm text-zinc-400">Twitch channel (merged chat, optional)</label>
         <p className="mt-1 text-xs text-zinc-600">
-          Lowercase login only (e.g. <code className="text-zinc-500">triviaworkshop</code>). When set, run{" "}
-          <code className="text-zinc-500">scripts/twitch-chat-bridge.mjs</code> with{" "}
-          <code className="text-zinc-500">TWITCH_CHAT_INGEST_SECRET</code> to mirror Twitch chat into this event&apos;s
-          Synapse chat.
+          Lowercase login only (e.g. <code className="text-zinc-500">triviaworkshop</code>). While this event is{" "}
+          <strong className="text-zinc-400">LIVE</strong> (time window), the shared bridge can mirror Twitch chat here.
+          One bot process for all hosts — set <code className="text-zinc-500">TWITCH_BRIDGE_CHANNELS_URL</code> + ingest
+          on Railway.
         </p>
         <input
           name="twitchChannelLogin"
