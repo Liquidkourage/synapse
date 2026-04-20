@@ -14,10 +14,11 @@ function bearerToken(raw: string): string {
   return t;
 }
 
+/** Bot name in Twitch already marks the source (e.g. SynapseChat); no extra [Synapse] tag. */
 function formatRelayLine(authorLabel: string, body: string): string {
-  const prefix = `[Synapse] ${authorLabel}: `;
+  const prefix = `${authorLabel}: `;
   const rest = body.trim();
-  let line = prefix + rest;
+  const line = prefix + rest;
   if (line.length <= TWITCH_MSG_MAX) return line;
   const budget = TWITCH_MSG_MAX - prefix.length - 1;
   return prefix + (budget > 0 ? rest.slice(0, budget) + "…" : rest.slice(0, TWITCH_MSG_MAX));
