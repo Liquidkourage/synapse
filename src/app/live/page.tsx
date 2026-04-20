@@ -7,6 +7,8 @@ import { EventChat } from "@/components/event-chat";
 import { EventViewerPanels } from "@/components/event-viewer-panels";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
+import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
+import { ensureTwitchPlayerParents } from "@/lib/twitch-embed";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
@@ -35,7 +37,7 @@ export default async function LivePage() {
   const secondaryEmbedSrc =
     live?.secondaryEmbedUrl && isSafeUrlForIframe(live.secondaryEmbedUrl) ? live.secondaryEmbedUrl : null;
 
-  const embedSrc = live
+  const rawBroadcastSrc = live
     ? await resolveDailyBroadcastEmbedUrl(
         {
           broadcastEmbedUrl: live.broadcastEmbedUrl,
@@ -47,6 +49,8 @@ export default async function LivePage() {
         session,
       )
     : null;
+  const hostForEmbed = await getRequestHostnameForEmbeds();
+  const embedSrc = rawBroadcastSrc ? ensureTwitchPlayerParents(rawBroadcastSrc, hostForEmbed) : null;
 
   const canViewBroadcast = live
     ? canViewBroadcastEmbed(

@@ -8,6 +8,8 @@ import { EventJoinButton } from "@/components/event-join";
 import { EventViewerPanels } from "@/components/event-viewer-panels";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
+import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
+import { ensureTwitchPlayerParents } from "@/lib/twitch-embed";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
@@ -24,7 +26,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const session = await auth();
   const eff = getEffectiveEventStatus(event);
 
-  const embedSrc = event.broadcastEmbedUrl
+  const rawBroadcastSrc = event.broadcastEmbedUrl
     ? await resolveDailyBroadcastEmbedUrl(
         {
           broadcastEmbedUrl: event.broadcastEmbedUrl,
@@ -36,6 +38,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         session,
       )
     : null;
+  const hostForEmbed = await getRequestHostnameForEmbeds();
+  const embedSrc = rawBroadcastSrc ? ensureTwitchPlayerParents(rawBroadcastSrc, hostForEmbed) : null;
 
   const canViewBroadcast = canViewBroadcastEmbed(
     {

@@ -25,6 +25,7 @@ export function BroadcastEmbed({
         src={src}
         className={fill ? "min-h-0 min-w-0 flex-1 border-0" : "h-full w-full border-0"}
         allow={BROADCAST_IFRAME_ALLOW}
+        referrerPolicy="strict-origin-when-cross-origin"
       />
     </div>
   );
