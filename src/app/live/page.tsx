@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getPublicLiveEvent } from "@/lib/queries";
 import { statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
-import { EventChat } from "@/components/event-chat";
-import { EventViewerPanels } from "@/components/event-viewer-panels";
+import { LiveViewportLayout } from "@/components/live-viewport-layout";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
@@ -115,36 +114,28 @@ export default async function LivePage() {
             </div>
           </div>
 
-          {/* Full viewport width: canvas flush left; chat rail with modest inset */}
-          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] max-md:min-h-[min(52dvh,560px)] md:grid-cols-[minmax(0,1fr)_17.5rem] md:items-stretch xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="flex h-full min-h-0 min-w-0 flex-col md:pl-0">
-              <EventViewerPanels
-                storageKey={`live-${live.slug}`}
-                broadcastLabel={broadcastLabel}
-                broadcastEmbedUrl={live.broadcastEmbedUrl}
-                broadcastIframeSrc={embedSrc}
-                canViewBroadcast={canViewBroadcast}
-                session={session}
-                gameEmbed={gameEmbed}
-                hasAnyToolEmbed={hasAnyToolEmbed}
-                embedUrl={live.embedUrl}
-                secondaryEmbedUrl={live.secondaryEmbedUrl}
-                primaryEmbedSrc={primaryEmbedSrc}
-                secondaryEmbedSrc={secondaryEmbedSrc}
-                externalUrl={live.externalUrl}
-                liveSlug={live.slug}
-                compact
-              />
-            </div>
-            <aside className="flex min-h-0 w-full min-w-0 flex-col border-zinc-800 px-4 pb-4 pt-2 md:sticky md:top-[4.5rem] md:max-h-[calc(100dvh-4.5rem)] md:self-stretch md:border-l md:border-t-0 md:px-3 md:pb-3 md:pt-0 lg:px-4">
-              <EventChat
-                eventId={live.id}
-                eventSlug={live.slug}
-                layout="sideRail"
-                initialMessages={[...chatMessages].reverse().map((m) => toChatMessageClient(m))}
-              />
-            </aside>
-          </div>
+          <LiveViewportLayout
+            chat={{
+              eventId: live.id,
+              eventSlug: live.slug,
+              initialMessages: [...chatMessages].reverse().map((m) => toChatMessageClient(m)),
+            }}
+            storageKey={`live-${live.slug}`}
+            broadcastLabel={broadcastLabel}
+            broadcastEmbedUrl={live.broadcastEmbedUrl}
+            broadcastIframeSrc={embedSrc}
+            canViewBroadcast={canViewBroadcast}
+            session={session}
+            gameEmbed={gameEmbed}
+            hasAnyToolEmbed={hasAnyToolEmbed}
+            embedUrl={live.embedUrl}
+            secondaryEmbedUrl={live.secondaryEmbedUrl}
+            primaryEmbedSrc={primaryEmbedSrc}
+            secondaryEmbedSrc={secondaryEmbedSrc}
+            externalUrl={live.externalUrl}
+            liveSlug={live.slug}
+            compact
+          />
         </div>
       ) : (
         <div className="shrink-0 px-4 sm:px-5 lg:px-6 xl:px-8">

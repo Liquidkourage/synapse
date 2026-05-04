@@ -4,8 +4,10 @@ import Link from "next/link";
 import type { Session } from "next-auth";
 import { BroadcastEmbed } from "@/components/broadcast-embed";
 import { BroadcastRestrictedNotice } from "@/components/broadcast-restricted-notice";
+import { MobileViewerTabs } from "@/components/mobile-viewer-tabs";
 import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
 import { ViewerCanvasLayout } from "@/components/viewer-canvas-layout";
+import { useMdUp } from "@/hooks/use-md-up";
 
 const iframeAllow = "clipboard-write; fullscreen";
 
@@ -43,6 +45,8 @@ type Props = {
   liveSlug?: string;
   /** Tighter vertical spacing + full-height canvas (e.g. /live) */
   compact?: boolean;
+  /** When set (typically mobile /live), Chat tab shows this; desktop keeps chat in LiveViewportLayout aside */
+  chatSlot?: React.ReactNode;
 };
 
 /**
@@ -66,7 +70,9 @@ export function EventViewerPanels({
   embedWaitingNote = "Embeds appear here during the live window.",
   liveSlug,
   compact = false,
+  chatSlot,
 }: Props) {
+  const mdUp = useMdUp();
   const showPrimary = !!(embedUrl && gameEmbed.show && primaryEmbedSrc);
   const showSecondary = !!(secondaryEmbedUrl && gameEmbed.show && secondaryEmbedSrc);
   const primaryInvalid = !!(embedUrl && gameEmbed.show && !primaryEmbedSrc);
@@ -120,19 +126,50 @@ export function EventViewerPanels({
 
       {showResizable && (
         <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-          <ViewerCanvasLayout
-            storageKey={storageKey}
-            videoLabel={broadcastLabel}
-            video={videoNode ?? undefined}
-            primary={hasPrimary ? <ToolEmbedFrame title="Embedded experience" src={primaryEmbedSrc!} /> : undefined}
-            secondary={
-              hasSecondary ? <ToolEmbedFrame title="Second embedded experience" src={secondaryEmbedSrc!} /> : undefined
-            }
-            hasVideo={hasVideo}
-            hasPrimary={hasPrimary}
-            hasSecondary={hasSecondary}
-            compact={compact}
-          />
+          {mdUp ? (
+            <ViewerCanvasLayout
+              storageKey={storageKey}
+              videoLabel={broadcastLabel}
+              video={videoNode ?? undefined}
+              primary={hasPrimary ? <ToolEmbedFrame title="Embedded experience" src={primaryEmbedSrc!} /> : undefined}
+              secondary={
+                hasSecondary ? <ToolEmbedFrame title="Second embedded experience" src={secondaryEmbedSrc!} /> : undefined
+              }
+              hasVideo={hasVideo}
+              hasPrimary={hasPrimary}
+              hasSecondary={hasSecondary}
+              compact={compact}
+            />
+          ) : (
+            <MobileViewerTabs
+              hasVideo={hasVideo}
+              hasPrimary={hasPrimary}
+              hasSecondary={hasSecondary}
+              videoLabel={broadcastLabel}
+              primaryLabel="Game / tool"
+              secondaryLabel="Second embed"
+              video={
+                hasVideo ? (
+                  <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">{videoNode}</div>
+                ) : null
+              }
+              primary={
+                hasPrimary ? (
+                  <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+                    <ToolEmbedFrame title="Embedded experience" src={primaryEmbedSrc!} />
+                  </div>
+                ) : null
+              }
+              secondary={
+                hasSecondary ? (
+                  <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+                    <ToolEmbedFrame title="Second embedded experience" src={secondaryEmbedSrc!} />
+                  </div>
+                ) : null
+              }
+              chatSlot={chatSlot}
+            />
+          )}
         </div>
       )}
 

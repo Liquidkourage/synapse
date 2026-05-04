@@ -30,8 +30,8 @@ export function EventChat({
   eventId: string;
   eventSlug: string;
   initialMessages: Msg[];
-  /** `sideRail`: tall column for live / theater layouts (chat on the right). */
-  layout?: "default" | "sideRail";
+  /** `sideRail`: tall column for live / theater layouts (chat on the right). `embedded`: fills a parent tab (mobile /live). */
+  layout?: "default" | "sideRail" | "embedded";
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
@@ -65,24 +65,29 @@ export function EventChat({
   }, [messages]);
 
   const rail = layout === "sideRail";
+  const embedded = layout === "embedded";
 
   return (
     <section
       className={
         rail
           ? "flex max-h-[min(520px,60vh)] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:h-full md:max-h-none"
-          : "rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6"
+          : embedded
+            ? "flex h-full min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4"
+            : "rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6"
       }
     >
-      <h2 className={`font-medium text-white ${rail ? "text-base" : "text-lg"}`}>Chat</h2>
-      <p className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}>
-        {rail
+      <h2 className={`font-medium text-white ${rail || embedded ? "text-base" : "text-lg"}`}>Chat</h2>
+      <p
+        className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : embedded ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}
+      >
+        {rail || embedded
           ? "Synapse + Twitch (when configured) in one feed; Synapse posts can mirror to your Twitch relay bot. Sign in to post with your name."
           : "Synapse + Twitch (when configured) in one feed — no account needed to read; sign in to post on Synapse with your name. With merged chat, Synapse lines can appear in Twitch from your relay bot (e.g. SynapseChat)."}
       </p>
       <ul
         ref={listRef}
-        className={`mt-3 space-y-2 overflow-y-auto text-sm ${rail ? "min-h-0 flex-1" : "mt-4 max-h-72"}`}
+        className={`mt-3 space-y-2 overflow-y-auto text-sm ${rail || embedded ? "min-h-0 flex-1" : "mt-4 max-h-72"}`}
       >
         {messages.map((m) => (
           <li
@@ -102,7 +107,7 @@ export function EventChat({
         {messages.length === 0 && <li className="text-zinc-500">Be the first to say hi.</li>}
       </ul>
       <form
-        className={`flex flex-col gap-2 sm:flex-row ${rail ? "mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4"}`}
+        className={`flex flex-col gap-2 sm:flex-row ${rail || embedded ? "mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4"}`}
         action={async (fd) => {
           await postEventMessage(fd);
           router.refresh();
