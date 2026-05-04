@@ -70,17 +70,20 @@ export default async function LivePage() {
       : "Host video";
 
   return (
-    <div className="flex min-h-0 min-h-[50dvh] flex-1 flex-col gap-4 lg:gap-5">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-semibold text-white sm:text-3xl">Live now</h1>
-        <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-base">
-          There is only one spotlight on the network. Here is what is live (or featured) right now.
-        </p>
-      </div>
-
+    <div className="flex min-h-0 flex-1 flex-col">
       {live ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-5">
-          <div className="shrink-0 rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4 sm:p-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-0">
+          <div className="shrink-0 space-y-3 px-4 pb-3 sm:space-y-4 sm:px-5 sm:pb-4 lg:px-6 xl:px-8">
+            <div>
+              <h1 className="text-2xl font-semibold text-white sm:text-3xl">Live now</h1>
+              <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-base">
+                There is only one spotlight on the network. Here is what is live (or featured) right now.
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 px-4 pb-3 sm:px-5 sm:pb-4 lg:px-6 xl:px-8">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4 sm:p-6">
             <p className="text-sm text-emerald-300/90">
               <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
                 {statusLabel(live.effectiveStatus)}
@@ -109,11 +112,12 @@ export default async function LivePage() {
                 </a>
               )}
             </div>
+            </div>
           </div>
 
-          {/* Canvas gets max width; chat stays a fixed narrow rail */}
-          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-4 md:grid-cols-[minmax(0,1fr)_17.5rem] md:items-stretch md:gap-4 lg:gap-5 xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="flex h-full min-h-0 min-w-0 flex-col">
+          {/* Full viewport width: canvas flush left; chat rail with modest inset */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] max-md:min-h-[min(52dvh,560px)] md:grid-cols-[minmax(0,1fr)_17.5rem] md:items-stretch xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="flex h-full min-h-0 min-w-0 flex-col md:pl-0">
               <EventViewerPanels
                 storageKey={`live-${live.slug}`}
                 broadcastLabel={broadcastLabel}
@@ -129,9 +133,10 @@ export default async function LivePage() {
                 secondaryEmbedSrc={secondaryEmbedSrc}
                 externalUrl={live.externalUrl}
                 liveSlug={live.slug}
+                compact
               />
             </div>
-            <aside className="flex min-h-0 w-full min-w-0 flex-col border-zinc-800 md:sticky md:top-20 md:max-h-[calc(100dvh-5rem)] md:border-l md:pl-5">
+            <aside className="flex min-h-0 w-full min-w-0 flex-col border-zinc-800 px-4 pb-4 pt-2 md:sticky md:top-[4.5rem] md:max-h-[calc(100dvh-4.5rem)] md:self-stretch md:border-l md:border-t-0 md:px-3 md:pb-3 md:pt-0 lg:px-4">
               <EventChat
                 eventId={live.id}
                 eventSlug={live.slug}
@@ -142,14 +147,22 @@ export default async function LivePage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 p-12 text-center text-zinc-500">
+        <div className="shrink-0 px-4 sm:px-5 lg:px-6 xl:px-8">
+          <h1 className="text-2xl font-semibold text-white sm:text-3xl">Live now</h1>
+          <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-base">
+            There is only one spotlight on the network. Here is what is live (or featured) right now.
+          </p>
+        </div>
+      )}
+      {!live ? (
+        <div className="mx-4 rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 p-12 text-center text-zinc-500 sm:mx-5 lg:mx-6 xl:mx-8">
           <p className="text-lg text-zinc-400">The signal is quiet.</p>
           <p className="mt-2">No live or featured event right now.</p>
           <Link href="/schedule" className="mt-6 inline-block text-violet-400 hover:underline">
             See what is next →
           </Link>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

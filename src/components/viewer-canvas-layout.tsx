@@ -293,6 +293,7 @@ export function ViewerCanvasLayout({
   videoLabel = "Synapse video",
   primaryLabel = "Game / tool (primary)",
   secondaryLabel = "Second embed (e.g. public display)",
+  compact = false,
 }: {
   storageKey: string;
   video?: React.ReactNode;
@@ -304,6 +305,8 @@ export function ViewerCanvasLayout({
   videoLabel?: string;
   primaryLabel?: string;
   secondaryLabel?: string;
+  /** Flush canvas to horizontal edges (e.g. /live) */
+  compact?: boolean;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const layoutInitRef = useRef(false);
@@ -520,19 +523,23 @@ export function ViewerCanvasLayout({
 
   const footer = useMemo(
     () => (
-      <p className="shrink-0 text-xs text-zinc-600">
+      <p
+        className={`shrink-0 text-xs text-zinc-600 ${compact ? "max-md:px-4 md:px-0" : ""}`}
+      >
         Click the toolbar (title or zoom) to raise a window. Drag the title to move; drag edges or corners to resize.{" "}
         <button type="button" onClick={resetLayout} className="text-violet-400 hover:underline">
           Reset layout
         </button>
       </p>
     ),
-    [resetLayout],
+    [resetLayout, compact],
   );
 
   if (!mounted) {
     return (
-      <div className="flex h-full min-h-[min(40vh,320px)] w-full min-w-0 flex-col gap-2">
+      <div
+        className={`flex h-full min-h-[min(40vh,320px)] w-full min-w-0 flex-col gap-2 ${compact ? "max-md:pl-0" : ""}`}
+      >
         <div className="min-h-[240px] w-full min-w-0 flex-1 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900/50" />
         {footer}
       </div>
@@ -540,14 +547,28 @@ export function ViewerCanvasLayout({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-2">
-      <div className="shrink-0 text-xs text-zinc-500">
-        Click the toolbar to focus a window. Drag the title to move; drag edges or corners to resize. While dragging or
-        resizing, embeds are briefly non-interactive so the cursor is not captured by iframes.
+    <div className={`flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-2 ${compact ? "max-md:px-0" : ""}`}>
+      <div
+        className={`shrink-0 text-xs ${compact ? "line-clamp-2 text-zinc-500 max-md:px-4 md:px-0" : "text-zinc-500"}`}
+      >
+        {compact ? (
+          <>
+            Drag titles to move; edges/corners resize. <span className="hidden sm:inline">Embed iframes pause while dragging.</span>
+          </>
+        ) : (
+          <>
+            Click the toolbar to focus a window. Drag the title to move; drag edges or corners to resize. While dragging
+            or resizing, embeds are briefly non-interactive so the cursor is not captured by iframes.
+          </>
+        )}
       </div>
       <div
         ref={canvasRef}
-        className="relative h-full min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-2xl border border-zinc-800/90 bg-[radial-gradient(ellipse_at_top,_rgba(39,39,42,0.5),_transparent_60%),linear-gradient(180deg,_rgb(9,9,11)_0%,_rgb(24,24,27)_100%)] ring-1 ring-zinc-700/30"
+        className={`relative h-full min-h-0 w-full min-w-0 flex-1 overflow-auto bg-[radial-gradient(ellipse_at_top,_rgba(39,39,42,0.5),_transparent_60%),linear-gradient(180deg,_rgb(9,9,11)_0%,_rgb(24,24,27)_100%)] ring-1 ring-zinc-700/30 ${
+          compact
+            ? "rounded-none border-x-0 border-y border-zinc-800/90 md:rounded-r-2xl md:border-r"
+            : "rounded-2xl border border-zinc-800/90"
+        }`}
       >
         {hasVideo && renderPanel("video", videoLabel, video, zoom.video, setVideoZoom)}
         {hasPrimary && renderPanel("primary", primaryLabel, primary, zoom.primary, setPrimaryZoom)}

@@ -41,6 +41,8 @@ type Props = {
   embedWaitingNote?: string;
   /** If set, "no session" message links here */
   liveSlug?: string;
+  /** Tighter vertical spacing + full-height canvas (e.g. /live) */
+  compact?: boolean;
 };
 
 /**
@@ -63,6 +65,7 @@ export function EventViewerPanels({
   externalUrl,
   embedWaitingNote = "Embeds appear here during the live window.",
   liveSlug,
+  compact = false,
 }: Props) {
   const showPrimary = !!(embedUrl && gameEmbed.show && primaryEmbedSrc);
   const showSecondary = !!(secondaryEmbedUrl && gameEmbed.show && secondaryEmbedSrc);
@@ -98,7 +101,7 @@ export function EventViewerPanels({
     );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-6">
+    <div className={`flex h-full min-h-0 flex-1 flex-col ${compact ? "gap-2" : "gap-6"}`}>
       {hasAnyToolEmbed && gameEmbed.preview && (
         <p className="text-xs text-amber-400/90">Preview — embeds are public once this event is LIVE.</p>
       )}
@@ -128,6 +131,7 @@ export function EventViewerPanels({
             hasVideo={hasVideo}
             hasPrimary={hasPrimary}
             hasSecondary={hasSecondary}
+            compact={compact}
           />
         </div>
       )}

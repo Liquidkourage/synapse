@@ -10,7 +10,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
   const liveFullWidth = pathname === "/live" || pathname.startsWith("/live/");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-zinc-950 text-zinc-100">
+    <div className="flex min-h-0 min-h-dvh flex-1 flex-col bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-40 border-b border-violet-500/20 bg-zinc-950/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="font-semibold tracking-tight text-violet-300">
@@ -67,7 +67,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
       <main
         className={
           liveFullWidth
-            ? "mx-auto flex min-h-0 w-full max-w-none flex-1 flex-col px-3 py-8 sm:px-5 lg:px-6 xl:px-8"
+            ? "mx-auto flex min-h-0 w-full max-w-none flex-1 flex-col px-0 pb-0 pt-3 sm:pt-4"
             : "mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-4 py-8"
         }
       >
