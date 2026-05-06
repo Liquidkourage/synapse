@@ -82,6 +82,7 @@ export function EventEditForm({
           resultsSummary: event.resultsSummary ?? "",
           recurrenceNote: event.recurrenceNote ?? "",
           twitchChannelLogin: event.twitchChannelLogin ?? "",
+          venmoHandle: event.venmoHandle ?? "",
         }}
       />
       <button
@@ -241,6 +242,20 @@ function FormFields({
           name="externalUrl"
           defaultValue={d.externalUrl}
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-zinc-400">Venmo (optional tips)</label>
+        <p className="mt-1 text-xs text-zinc-600">
+          Your Venmo username only (no @). Shows a small support card on the event and live pages — opens Venmo in a new
+          tab. Not an official embed; use a business or personal profile you control.
+        </p>
+        <input
+          name="venmoHandle"
+          placeholder="e.g. Jane-Doe-42"
+          defaultValue={d.venmoHandle}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+          autoComplete="off"
         />
       </div>
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-4">

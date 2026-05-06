@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getPublicLiveEvent } from "@/lib/queries";
 import { statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
+import { EventVenmoTipBlock } from "@/components/event-venmo-tip";
 import { LiveViewportLayout } from "@/components/live-viewport-layout";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
@@ -111,6 +112,11 @@ export default async function LivePage() {
                 </a>
               )}
             </div>
+            {live.venmoHandle ? (
+              <div className="mt-4">
+                <EventVenmoTipBlock handle={live.venmoHandle} compact />
+              </div>
+            ) : null}
             </div>
           </div>
 

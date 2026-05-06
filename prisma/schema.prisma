@@ -117,6 +117,8 @@ model Event {
   instructions    String?
   /// Twitch channel login (lowercase, e.g. triviaworkshop) for merged chat — optional; run scripts/twitch-chat-bridge.mjs with ingest secret
   twitchChannelLogin String?
+  /// Venmo username (no @) for optional tip/Support link — opens Venmo in a new tab; not an official embed widget.
+  venmoHandle String?
 
   coverImageUrl  String?
   bannerImageUrl String?

@@ -5,6 +5,7 @@ import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
 import { EventChat } from "@/components/event-chat";
 import { EventJoinButton } from "@/components/event-join";
+import { EventVenmoTipBlock } from "@/components/event-venmo-tip";
 import { EventViewerPanels } from "@/components/event-viewer-panels";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
@@ -164,6 +165,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
             Network live page
           </Link>
         </div>
+        {event.venmoHandle ? (
+          <div className="mt-6">
+            <EventVenmoTipBlock handle={event.venmoHandle} />
+          </div>
+        ) : null}
         <div className="mt-8 flex min-h-[min(50dvh,480px)] flex-col">
           <EventViewerPanels
             storageKey={`event-${event.slug}`}

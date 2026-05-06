@@ -9,6 +9,7 @@ import { isHostOrAbove, isProducerOrAbove } from "@/lib/rbac";
 import { slugify } from "@/lib/slug";
 import { getSynapseVideoServerHints, provisionDailyRoomForEvent } from "@/lib/synapse-video";
 import { ensureHttpUrl } from "@/lib/url";
+import { normalizeVenmoHandle } from "@/lib/venmo-url";
 
 const emptyToUndef = (v: unknown) => {
   if (v === undefined || v === null) return undefined;
@@ -44,6 +45,7 @@ const eventFields = z.object({
   recurrenceNote: z.preprocess(emptyToUndef, z.string().max(500).optional()),
   producerId: z.preprocess(emptyToUndef, z.string().optional()),
   twitchChannelLogin: z.preprocess(emptyToUndef, z.string().max(80).optional()),
+  venmoHandle: z.preprocess(emptyToUndef, z.string().max(60).optional()),
 });
 
 function parseForm(formData: FormData) {
@@ -102,6 +104,7 @@ export async function createEvent(formData: FormData) {
       resultsSummary: parsed.data.resultsSummary || null,
       recurrenceNote: parsed.data.recurrenceNote || null,
       twitchChannelLogin: parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
+      venmoHandle: normalizeVenmoHandle(parsed.data.venmoHandle ?? null) ?? null,
     },
   });
 
@@ -164,6 +167,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
       resultsSummary: parsed.data.resultsSummary || null,
       recurrenceNote: parsed.data.recurrenceNote || null,
       twitchChannelLogin: parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
+      venmoHandle: normalizeVenmoHandle(parsed.data.venmoHandle ?? null) ?? null,
       ...(isProducerOrAbove(session.user.role) && parsed.data.producerId
         ? { producerId: parsed.data.producerId }
         : {}),
