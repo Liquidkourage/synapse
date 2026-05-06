@@ -7,7 +7,11 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
-  const liveFullWidth = pathname === "/live" || pathname.startsWith("/live/");
+  /** Full-width main for viewer stage (15 / 70 / 15) on live + event detail. */
+  const stageViewerLayout =
+    pathname === "/live" ||
+    pathname.startsWith("/live/") ||
+    /^\/events\/[^/]+$/.test(pathname);
 
   return (
     <div className="flex min-h-0 min-h-dvh flex-1 flex-col bg-zinc-950 text-zinc-100">
@@ -66,7 +70,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
       </header>
       <main
         className={
-          liveFullWidth
+          stageViewerLayout
             ? "mx-auto flex min-h-0 w-full max-w-none flex-1 flex-col px-0 pb-0 pt-3 sm:pt-4"
             : "mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-4 py-8"
         }

@@ -401,17 +401,29 @@ function FormFields({
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
-      <div>
-        <label className="block text-sm text-zinc-400">Second embed URL (optional)</label>
-        <p className="mt-1 text-xs text-zinc-600">
-          Another iframe below the first — e.g. public display or scoreboard while the primary embed is the player UI.{" "}
-          Same visibility rules as the first embed. <code className="text-zinc-500">https://</code> is added on save if
-          omitted.
+      <div className="rounded-xl border border-cyan-500/25 bg-cyan-950/20 p-4">
+        <label className="block text-sm font-medium text-cyan-200/90">Second embed — public display (optional)</label>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+          Second iframe: scoreboard, slide mirror, or a{" "}
+          <a
+            href="https://vdo.ninja/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cyan-300 underline hover:text-cyan-200"
+          >
+            VDO.Ninja
+          </a>{" "}
+          <strong className="font-normal text-zinc-400">viewer</strong> link. Hosts push video from a local window or
+          OBS to VDO; paste the generated <code className="rounded bg-zinc-900 px-1 text-zinc-400">https://vdo.ninja/v/…</code>{" "}
+          (or legacy <code className="rounded bg-zinc-900 px-1 text-zinc-400">obs.ninja</code>) here so Synapse shows
+          that feed as the &quot;public&quot; display alongside the primary game embed. Same LIVE/preview visibility as
+          the first embed.
         </p>
         <input
           name="secondaryEmbedUrl"
+          placeholder="https://vdo.ninja/v/your-viewer-id"
           defaultValue={d.secondaryEmbedUrl}
-          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+          className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
       <div>

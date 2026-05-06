@@ -292,7 +292,7 @@ export function ViewerCanvasLayout({
   hasSecondary,
   videoLabel = "Synapse video",
   primaryLabel = "Game / tool (primary)",
-  secondaryLabel = "Second embed (e.g. public display)",
+  secondaryLabel = "Public display (second embed; e.g. VDO.Ninja viewer link)",
   compact = false,
 }: {
   storageKey: string;

@@ -2,19 +2,17 @@
 
 import Link from "next/link";
 import type { Session } from "next-auth";
-import { BroadcastEmbed } from "@/components/broadcast-embed";
+import { BroadcastEmbed, BROADCAST_IFRAME_ALLOW } from "@/components/broadcast-embed";
 import { BroadcastRestrictedNotice } from "@/components/broadcast-restricted-notice";
 import { MobileViewerTabs } from "@/components/mobile-viewer-tabs";
 import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
 import { ViewerCanvasLayout } from "@/components/viewer-canvas-layout";
 import { useMdUp } from "@/hooks/use-md-up";
 
-const iframeAllow = "clipboard-write; fullscreen";
-
 function ToolEmbedFrame({ title, src }: { title: string; src: string }) {
   return (
     <div className="flex h-full min-h-[120px] min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
-      <iframe title={title} src={src} className="h-full w-full min-h-0 border-0" allow={iframeAllow} />
+      <iframe title={title} src={src} className="h-full w-full min-h-0 border-0" allow={BROADCAST_IFRAME_ALLOW} />
     </div>
   );
 }
@@ -45,7 +43,7 @@ type Props = {
   liveSlug?: string;
   /** Tighter vertical spacing + full-height canvas (e.g. /live) */
   compact?: boolean;
-  /** When set (typically mobile /live), Chat tab shows this; desktop keeps chat in LiveViewportLayout aside */
+  /** When set (typically mobile), Chat tab shows this; desktop keeps chat in EventStageShell right column */
   chatSlot?: React.ReactNode;
 };
 
@@ -147,7 +145,7 @@ export function EventViewerPanels({
               hasSecondary={hasSecondary}
               videoLabel={broadcastLabel}
               primaryLabel="Game / tool"
-              secondaryLabel="Second embed"
+              secondaryLabel="Public display"
               video={
                 hasVideo ? (
                   <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">{videoNode}</div>

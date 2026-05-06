@@ -3,10 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
-import { EventChat } from "@/components/event-chat";
 import { EventJoinButton } from "@/components/event-join";
 import { EventVenmoTipBlock } from "@/components/event-venmo-tip";
-import { EventViewerPanels } from "@/components/event-viewer-panels";
+import { EventStageShell } from "@/components/event-stage-shell";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
@@ -90,109 +89,131 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       : null,
   ]);
 
+  const chatMessages = [...messages].reverse().map((m) => toChatMessageClient(m));
+
   return (
-    <div className="space-y-10">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       {event.coverImageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={event.coverImageUrl} alt="" className="max-h-72 w-full rounded-2xl object-cover" />
-      )}
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-zinc-300">{statusLabel(eff)}</span>
-          {event.recurrenceNote && (
-            <span className="rounded-full bg-violet-600/20 px-2 py-0.5 text-violet-200">{event.recurrenceNote}</span>
-          )}
-        </div>
-        <h1 className="text-4xl font-semibold text-white">{event.title}</h1>
-        <p className="text-xl text-zinc-400">{event.shortDescription}</p>
-        <p className="text-sm text-zinc-500">
-          <LocalDateTime iso={event.startAt.toISOString()} /> → <LocalDateTime iso={event.endAt.toISOString()} />
-        </p>
-        <p className="text-sm text-zinc-500">
-          Host: {event.host.name ?? event.host.email}
-          {event.producer && <> · Producer: {event.producer.name ?? event.producer.email}</>}
-        </p>
-      </header>
-
-      <EventJoinButton
-        eventId={event.id}
-        eventSlug={event.slug}
-        initialJoined={!!userAttendance}
-        attendanceCount={attendanceCount}
-      />
-
-      {event.longDescription && (
-        <section className="prose prose-invert max-w-none">
-          <h2 className="text-lg font-medium text-white">About</h2>
-          <p className="whitespace-pre-wrap text-zinc-300">{event.longDescription}</p>
-        </section>
-      )}
-
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        <h2 className="text-lg font-medium text-white">Play</h2>
-        <dl className="mt-4 space-y-2 text-sm">
-          {event.platformName && (
-            <div className="flex gap-2">
-              <dt className="w-32 shrink-0 text-zinc-500">Platform</dt>
-              <dd className="text-zinc-200">{event.platformName}</dd>
-            </div>
-          )}
-          {event.integrationType && (
-            <div className="flex gap-2">
-              <dt className="w-32 shrink-0 text-zinc-500">Integration</dt>
-              <dd className="text-zinc-200">{event.integrationType}</dd>
-            </div>
-          )}
-        </dl>
-        {event.instructions && (
-          <div className="mt-4 rounded-xl bg-zinc-950/60 p-4 text-sm text-zinc-300">
-            <strong className="text-zinc-100">Instructions</strong>
-            <p className="mt-2 whitespace-pre-wrap">{event.instructions}</p>
-          </div>
-        )}
-        <div className="mt-6 flex flex-wrap gap-3">
-          {event.externalUrl && (
-            <a
-              href={event.externalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-500"
-            >
-              Open external game
-            </a>
-          )}
-          <Link href="/live" className="rounded-full border border-zinc-600 px-5 py-2.5 text-sm text-zinc-200">
-            Network live page
-          </Link>
-        </div>
-        {event.venmoHandle ? (
-          <div className="mt-6">
-            <EventVenmoTipBlock handle={event.venmoHandle} />
-          </div>
-        ) : null}
-        <div className="mt-8 flex min-h-[min(50dvh,480px)] flex-col">
-          <EventViewerPanels
-            storageKey={`event-${event.slug}`}
-            broadcastLabel={broadcastLabel}
-            broadcastDescription={broadcastDescription}
-            broadcastEmbedUrl={event.broadcastEmbedUrl}
-            broadcastIframeSrc={embedSrc}
-            canViewBroadcast={canViewBroadcast}
-            session={session}
-            gameEmbed={gameEmbed}
-            hasAnyToolEmbed={hasAnyToolEmbed}
-            embedUrl={event.embedUrl}
-            secondaryEmbedUrl={event.secondaryEmbedUrl}
-            primaryEmbedSrc={gameEmbedSrc}
-            secondaryEmbedSrc={secondaryEmbedSrc}
-            externalUrl={event.externalUrl}
-            embedWaitingNote="Configured embeds appear here during the live window."
+        <div className="shrink-0 px-3 sm:px-4 lg:px-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={event.coverImageUrl}
+            alt=""
+            className="max-h-40 w-full rounded-2xl object-cover sm:max-h-48"
           />
         </div>
-      </section>
+      )}
+
+      <EventStageShell
+        left={
+          <div className="flex flex-col gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-zinc-300">{statusLabel(eff)}</span>
+              {event.recurrenceNote && (
+                <span className="rounded-full bg-violet-600/20 px-2 py-0.5 text-violet-200">
+                  {event.recurrenceNote}
+                </span>
+              )}
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold leading-tight text-white sm:text-2xl">{event.title}</h1>
+              <p className="mt-2 text-sm leading-snug text-zinc-400">{event.shortDescription}</p>
+              <p className="mt-2 text-xs text-zinc-500">
+                <LocalDateTime iso={event.startAt.toISOString()} /> →{" "}
+                <LocalDateTime iso={event.endAt.toISOString()} />
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Host: {event.host.name ?? event.host.email}
+                {event.producer && <> · Producer: {event.producer.name ?? event.producer.email}</>}
+              </p>
+            </div>
+
+            <EventJoinButton
+              eventId={event.id}
+              eventSlug={event.slug}
+              initialJoined={!!userAttendance}
+              attendanceCount={attendanceCount}
+            />
+
+            {event.longDescription ? (
+              <section>
+                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">About</h2>
+                <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-300">{event.longDescription}</p>
+              </section>
+            ) : null}
+
+            <section className="rounded-xl border border-zinc-800 bg-zinc-900/35 p-3">
+              <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Play</h2>
+              <dl className="mt-2 space-y-1.5 text-xs">
+                {event.platformName && (
+                  <div className="flex gap-2">
+                    <dt className="w-14 shrink-0 text-zinc-500">Platform</dt>
+                    <dd className="min-w-0 text-zinc-200">{event.platformName}</dd>
+                  </div>
+                )}
+                {event.integrationType && (
+                  <div className="flex gap-2">
+                    <dt className="w-14 shrink-0 text-zinc-500">Integration</dt>
+                    <dd className="min-w-0 text-zinc-200">{event.integrationType}</dd>
+                  </div>
+                )}
+              </dl>
+              {event.instructions ? (
+                <div className="mt-2 rounded-lg bg-zinc-950/55 p-2 text-xs text-zinc-300">
+                  <strong className="text-zinc-100">Instructions</strong>
+                  <p className="mt-1 whitespace-pre-wrap">{event.instructions}</p>
+                </div>
+              ) : null}
+              <div className="mt-3 flex flex-col gap-2">
+                {event.externalUrl && (
+                  <a
+                    href={event.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg bg-violet-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-violet-500"
+                  >
+                    Open external game
+                  </a>
+                )}
+                <Link
+                  href="/live"
+                  className="rounded-lg border border-zinc-600 px-3 py-2 text-center text-xs text-zinc-200 hover:bg-zinc-800/50"
+                >
+                  Network live page
+                </Link>
+              </div>
+              {event.venmoHandle ? (
+                <div className="mt-3 border-t border-zinc-800/80 pt-3">
+                  <EventVenmoTipBlock handle={event.venmoHandle} compact />
+                </div>
+              ) : null}
+            </section>
+          </div>
+        }
+        chat={{
+          eventId: event.id,
+          eventSlug: event.slug,
+          initialMessages: chatMessages,
+        }}
+        storageKey={`event-${event.slug}`}
+        broadcastLabel={broadcastLabel}
+        broadcastDescription={broadcastDescription}
+        broadcastEmbedUrl={event.broadcastEmbedUrl}
+        broadcastIframeSrc={embedSrc}
+        canViewBroadcast={canViewBroadcast}
+        session={session}
+        gameEmbed={gameEmbed}
+        hasAnyToolEmbed={hasAnyToolEmbed}
+        embedUrl={event.embedUrl}
+        secondaryEmbedUrl={event.secondaryEmbedUrl}
+        primaryEmbedSrc={gameEmbedSrc}
+        secondaryEmbedSrc={secondaryEmbedSrc}
+        externalUrl={event.externalUrl}
+        embedWaitingNote="Configured embeds appear here during the live window."
+      />
 
       {(event.replayUrl || event.resultsSummary) && (
-        <section className="space-y-3">
+        <section className="space-y-3 border-t border-zinc-800 px-4 py-8 sm:px-5 lg:px-6">
           <h2 className="text-lg font-medium text-white">After the show</h2>
           {event.replayUrl && (
             <p>
@@ -209,12 +230,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           )}
         </section>
       )}
-
-      <EventChat
-        eventId={event.id}
-        eventSlug={event.slug}
-        initialMessages={[...messages].reverse().map((m) => toChatMessageClient(m))}
-      />
     </div>
   );
 }

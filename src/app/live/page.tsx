@@ -4,7 +4,7 @@ import { getPublicLiveEvent } from "@/lib/queries";
 import { statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
 import { EventVenmoTipBlock } from "@/components/event-venmo-tip";
-import { LiveViewportLayout } from "@/components/live-viewport-layout";
+import { EventStageShell } from "@/components/event-stage-shell";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
@@ -72,77 +72,75 @@ export default async function LivePage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {live ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-0">
-          <div className="shrink-0 space-y-3 px-4 pb-3 sm:space-y-4 sm:px-5 sm:pb-4 lg:px-6 xl:px-8">
+        <EventStageShell
+          banner={
             <div>
-              <h1 className="text-2xl font-semibold text-white sm:text-3xl">Live now</h1>
-              <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-base">
-                There is only one spotlight on the network. Here is what is live (or featured) right now.
+              <h1 className="text-lg font-semibold text-white sm:text-xl">Live now</h1>
+              <p className="mt-0.5 text-xs text-zinc-500 sm:text-sm">
+                One spotlight on the network — stage layouts info · canvas · chat.
               </p>
             </div>
-          </div>
-
-          <div className="shrink-0 px-4 pb-3 sm:px-5 sm:pb-4 lg:px-6 xl:px-8">
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4 sm:p-6">
-            <p className="text-sm text-emerald-300/90">
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
-                {statusLabel(live.effectiveStatus)}
-              </span>
-              <span className="ml-2 text-zinc-400">
-                <LocalDateTime iso={live.startAt.toISOString()} />
-              </span>
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white sm:mt-3 sm:text-3xl">{live.title}</h2>
-            <p className="mt-2 text-zinc-400">{live.shortDescription}</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                href={`/events/${live.slug}`}
-                className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/15"
-              >
-                Full event page
-              </Link>
-              {live.externalUrl && (
-                <a
-                  href={live.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-full bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
-                >
-                  Open game ({live.platformName ?? "external"})
-                </a>
-              )}
-            </div>
-            {live.venmoHandle ? (
-              <div className="mt-4">
-                <EventVenmoTipBlock handle={live.venmoHandle} compact />
+          }
+          left={
+            <div className="flex flex-col gap-3">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/25 p-3 sm:p-4">
+                <p className="text-xs text-emerald-300/90">
+                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
+                    {statusLabel(live.effectiveStatus)}
+                  </span>
+                  <span className="ml-2 text-zinc-500">
+                    <LocalDateTime iso={live.startAt.toISOString()} />
+                  </span>
+                </p>
+                <h2 className="mt-2 text-base font-semibold leading-snug text-white sm:text-lg">{live.title}</h2>
+                <p className="mt-2 text-sm leading-snug text-zinc-400">{live.shortDescription}</p>
+                <div className="mt-3 flex flex-col gap-2">
+                  <Link
+                    href={`/events/${live.slug}`}
+                    className="rounded-lg bg-white/10 px-3 py-2 text-center text-xs font-medium text-white hover:bg-white/15 sm:text-sm"
+                  >
+                    Full event page
+                  </Link>
+                  {live.externalUrl && (
+                    <a
+                      href={live.externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg bg-violet-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-violet-500 sm:text-sm"
+                    >
+                      Open game ({live.platformName ?? "external"})
+                    </a>
+                  )}
+                </div>
+                {live.venmoHandle ? (
+                  <div className="mt-3 border-t border-zinc-800/80 pt-3">
+                    <EventVenmoTipBlock handle={live.venmoHandle} compact />
+                  </div>
+                ) : null}
               </div>
-            ) : null}
             </div>
-          </div>
-
-          <LiveViewportLayout
-            chat={{
-              eventId: live.id,
-              eventSlug: live.slug,
-              initialMessages: [...chatMessages].reverse().map((m) => toChatMessageClient(m)),
-            }}
-            storageKey={`live-${live.slug}`}
-            broadcastLabel={broadcastLabel}
-            broadcastEmbedUrl={live.broadcastEmbedUrl}
-            broadcastIframeSrc={embedSrc}
-            canViewBroadcast={canViewBroadcast}
-            session={session}
-            gameEmbed={gameEmbed}
-            hasAnyToolEmbed={hasAnyToolEmbed}
-            embedUrl={live.embedUrl}
-            secondaryEmbedUrl={live.secondaryEmbedUrl}
-            primaryEmbedSrc={primaryEmbedSrc}
-            secondaryEmbedSrc={secondaryEmbedSrc}
-            externalUrl={live.externalUrl}
-            liveSlug={live.slug}
-            compact
-          />
-        </div>
+          }
+          chat={{
+            eventId: live.id,
+            eventSlug: live.slug,
+            initialMessages: [...chatMessages].reverse().map((m) => toChatMessageClient(m)),
+          }}
+          storageKey={`live-${live.slug}`}
+          broadcastLabel={broadcastLabel}
+          broadcastEmbedUrl={live.broadcastEmbedUrl}
+          broadcastIframeSrc={embedSrc}
+          canViewBroadcast={canViewBroadcast}
+          session={session}
+          gameEmbed={gameEmbed}
+          hasAnyToolEmbed={hasAnyToolEmbed}
+          embedUrl={live.embedUrl}
+          secondaryEmbedUrl={live.secondaryEmbedUrl}
+          primaryEmbedSrc={primaryEmbedSrc}
+          secondaryEmbedSrc={secondaryEmbedSrc}
+          externalUrl={live.externalUrl}
+          liveSlug={live.slug}
+          compact
+        />
       ) : (
         <div className="shrink-0 px-4 sm:px-5 lg:px-6 xl:px-8">
           <h1 className="text-2xl font-semibold text-white sm:text-3xl">Live now</h1>

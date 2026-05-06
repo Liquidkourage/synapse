@@ -8,13 +8,17 @@ import type { ChatMessageClient } from "@/lib/chat-message-dto";
 
 type Msg = ChatMessageClient;
 
-function Submit() {
+function Submit({ compact }: { compact?: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       disabled={pending}
-      className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+      className={
+        compact
+          ? "rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+          : "rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+      }
     >
       {pending ? "Sending…" : "Send"}
     </button>
@@ -30,8 +34,8 @@ export function EventChat({
   eventId: string;
   eventSlug: string;
   initialMessages: Msg[];
-  /** `sideRail`: tall column for live / theater layouts (chat on the right). `embedded`: fills a parent tab (mobile /live). */
-  layout?: "default" | "sideRail" | "embedded";
+  /** `sideRail`: wide right column. `stageRail`: narrow ~15% column (tighter UI). `embedded`: mobile viewer tab. */
+  layout?: "default" | "sideRail" | "embedded" | "stageRail";
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
@@ -65,29 +69,41 @@ export function EventChat({
   }, [messages]);
 
   const rail = layout === "sideRail";
+  const stageRail = layout === "stageRail";
   const embedded = layout === "embedded";
+  const railish = rail || stageRail;
 
   return (
     <section
       className={
-        rail
-          ? "flex max-h-[min(520px,60vh)] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:h-full md:max-h-none"
-          : embedded
-            ? "flex h-full min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4"
-            : "rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6"
+        stageRail
+          ? "flex h-full min-h-0 flex-col rounded-xl border border-zinc-800 bg-zinc-950/50 p-2.5"
+          : rail
+            ? "flex max-h-[min(520px,60vh)] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:h-full md:max-h-none"
+            : embedded
+              ? "flex h-full min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4"
+              : "rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6"
       }
     >
-      <h2 className={`font-medium text-white ${rail || embedded ? "text-base" : "text-lg"}`}>Chat</h2>
-      <p
-        className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : embedded ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}
+      <h2
+        className={`font-medium text-white ${stageRail ? "text-sm" : rail || embedded ? "text-base" : "text-lg"}`}
       >
-        {rail || embedded
-          ? "Synapse + Twitch (when configured) in one feed; Synapse posts can mirror to your Twitch relay bot. Sign in to post with your name."
-          : "Synapse + Twitch (when configured) in one feed — no account needed to read; sign in to post on Synapse with your name. With merged chat, Synapse lines can appear in Twitch from your relay bot (e.g. SynapseChat)."}
-      </p>
+        Chat
+      </h2>
+      {!stageRail ? (
+        <p
+          className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : embedded ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}
+        >
+          {rail || embedded
+            ? "Synapse + Twitch (when configured) in one feed; Synapse posts can mirror to your Twitch relay bot. Sign in to post with your name."
+            : "Synapse + Twitch (when configured) in one feed — no account needed to read; sign in to post on Synapse with your name. With merged chat, Synapse lines can appear in Twitch from your relay bot (e.g. SynapseChat)."}
+        </p>
+      ) : (
+        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">Sign in to post. Twitch merge when configured.</p>
+      )}
       <ul
         ref={listRef}
-        className={`mt-3 space-y-2 overflow-y-auto text-sm ${rail || embedded ? "min-h-0 flex-1" : "mt-4 max-h-72"}`}
+        className={`space-y-2 overflow-y-auto ${stageRail ? "mt-2 min-h-0 flex-1 text-xs" : railish || embedded ? "mt-3 min-h-0 flex-1 text-sm" : "mt-4 max-h-72 text-sm"}`}
       >
         {messages.map((m) => (
           <li
@@ -107,7 +123,7 @@ export function EventChat({
         {messages.length === 0 && <li className="text-zinc-500">Be the first to say hi.</li>}
       </ul>
       <form
-        className={`flex flex-col gap-2 sm:flex-row ${rail || embedded ? "mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4"}`}
+        className={`flex flex-col gap-2 ${stageRail ? "mt-2 shrink-0 border-t border-zinc-800/80 pt-2" : railish || embedded ? "sm:flex-row mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4 sm:flex-row"}`}
         action={async (fd) => {
           await postEventMessage(fd);
           router.refresh();
@@ -122,16 +138,24 @@ export function EventChat({
         <input type="hidden" name="eventSlug" value={eventSlug} />
         <input
           name="guestName"
-          placeholder="Nickname (guests)"
-          className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 sm:w-40"
+          placeholder="Guest name"
+          className={
+            stageRail
+              ? "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600"
+              : "rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 sm:w-40"
+          }
         />
         <input
           name="body"
           required
-          placeholder="Say something nice…"
-          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600"
+          placeholder={stageRail ? "Message…" : "Say something nice…"}
+          className={
+            stageRail
+              ? "min-h-[2.25rem] min-w-0 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600"
+              : "min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600"
+          }
         />
-        <Submit />
+        <Submit compact={stageRail} />
       </form>
     </section>
   );
