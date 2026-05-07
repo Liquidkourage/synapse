@@ -9,6 +9,7 @@ const normPanelZ = z.object({
   nw: z.number().min(0).max(1),
   nh: z.number().min(0).max(1),
   z: z.number().min(1).max(99),
+  zoom: z.number().min(0.5).max(1.75).optional(),
 });
 
 export const viewerCanvasLayoutV1Z = z.object({

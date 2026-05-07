@@ -5,10 +5,15 @@ import type { ResizeDirection } from "re-resizable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  clampPanelZoom,
+  defaultPanelZoomState,
   denormalizeV1ToPixelPanels,
+  mergePanelZoomFromPartial,
   normalizePixelPanelsToV1,
+  panelZoomFromNormalizedPanels,
   remapPublishedPanelZs,
   VIEWER_CANVAS_MARGIN,
+  type PanelZoomState,
   type ViewerCanvasLayoutV1,
   type ViewerMobileTabId,
 } from "@/lib/viewer-canvas-layout-geometry";
@@ -27,6 +32,8 @@ type PanelGeom = {
 };
 
 type Stored = Partial<Record<PanelId, PanelGeom>>;
+
+type LocalCanvasBundle = { geoms: Stored; zoom: PanelZoomState };
 
 const CANVAS_MARGIN = VIEWER_CANVAS_MARGIN;
 const PANEL_MIN_W = 260;
@@ -85,20 +92,42 @@ function clearUserLocked(key: string) {
   }
 }
 
-function loadStored(key: string): Stored {
-  if (typeof window === "undefined") return {};
+function loadStoredBundle(key: string): { geoms: Stored; zoom: PanelZoomState | null } {
+  if (typeof window === "undefined") return { geoms: {}, zoom: null };
   try {
     const raw = localStorage.getItem(`${LS_PREFIX}:${key}`);
-    if (!raw) return {};
-    return JSON.parse(raw) as Stored;
+    if (!raw) return { geoms: {}, zoom: null };
+    const p = JSON.parse(raw) as unknown;
+    if (p && typeof p === "object" && "geoms" in p && p.geoms && typeof p.geoms === "object") {
+      const o = p as Partial<LocalCanvasBundle>;
+      const zr = o.zoom;
+      let zoom: PanelZoomState | null = null;
+      if (zr && typeof zr === "object") {
+        zoom = {
+          video: typeof zr.video === "number" ? clampPanelZoom(zr.video) : 1,
+          primary: typeof zr.primary === "number" ? clampPanelZoom(zr.primary) : 1,
+          secondary: typeof zr.secondary === "number" ? clampPanelZoom(zr.secondary) : 1,
+        };
+      }
+      return { geoms: o.geoms as Stored, zoom };
+    }
+    return { geoms: p as Stored, zoom: null };
   } catch {
-    return {};
+    return { geoms: {}, zoom: null };
   }
 }
 
-function saveStored(key: string, data: Stored) {
+function saveStoredBundle(key: string, geoms: Stored, zoom: PanelZoomState) {
   try {
-    localStorage.setItem(`${LS_PREFIX}:${key}`, JSON.stringify(data));
+    const bundle: LocalCanvasBundle = {
+      geoms,
+      zoom: {
+        video: clampPanelZoom(zoom.video),
+        primary: clampPanelZoom(zoom.primary),
+        secondary: clampPanelZoom(zoom.secondary),
+      },
+    };
+    localStorage.setItem(`${LS_PREFIX}:${key}`, JSON.stringify(bundle));
   } catch {
     /* quota */
   }
@@ -193,7 +222,7 @@ function PanelToolbar({ label, zoom, onZoom }: { label: string; zoom: number; on
       <div className="flex items-center gap-1">
         <button
           type="button"
-          onClick={() => onZoom(Math.max(0.5, Math.round((zoom - 0.1) * 100) / 100))}
+          onClick={() => onZoom(clampPanelZoom(zoom - 0.1))}
           className="rounded border border-zinc-600 px-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
           aria-label="Zoom out"
         >
@@ -202,7 +231,7 @@ function PanelToolbar({ label, zoom, onZoom }: { label: string; zoom: number; on
         <span className="min-w-[3rem] text-center text-xs tabular-nums text-zinc-500">{Math.round(zoom * 100)}%</span>
         <button
           type="button"
-          onClick={() => onZoom(Math.min(1.75, Math.round((zoom + 0.1) * 100) / 100))}
+          onClick={() => onZoom(clampPanelZoom(zoom + 0.1))}
           className="rounded border border-zinc-600 px-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
           aria-label="Zoom in"
         >
@@ -366,7 +395,11 @@ export function ViewerCanvasLayout({
 
   const [mounted, setMounted] = useState(false);
   const [geoms, setGeoms] = useState<Stored>({});
-  const [zoom, setZoom] = useState({ video: 1, primary: 1, secondary: 1 });
+  const [zoom, setZoom] = useState<PanelZoomState>(() => defaultPanelZoomState());
+  const geomsRef = useRef(geoms);
+  const zoomRef = useRef(zoom);
+  geomsRef.current = geoms;
+  zoomRef.current = zoom;
   const [canvasPointerLock, setCanvasPointerLock] = useState(false);
   const [publishMobileTab, setPublishMobileTab] = useState<ViewerMobileTabId>("video");
   const [publishState, setPublishState] = useState<"idle" | "saving" | "ok" | "err">("idle");
@@ -379,6 +412,7 @@ export function ViewerCanvasLayout({
   useEffect(() => {
     layoutInitRef.current = false;
     setGeoms({});
+    setZoom(defaultPanelZoomState());
   }, [storageKey, hostLayoutSig]);
 
   useEffect(() => {
@@ -400,9 +434,11 @@ export function ViewerCanvasLayout({
   }, [hasVideo, hasPrimary, hasSecondary, hasMobileChatTab, publishMobileTab]);
 
   const applyLayout = useCallback(
-    (next: Stored) => {
-      saveStored(storageKey, next);
+    (next: Stored, zoomOverride?: PanelZoomState) => {
+      const z = zoomOverride ?? zoomRef.current;
+      saveStoredBundle(storageKey, next, z);
       setGeoms(next);
+      if (zoomOverride) setZoom(zoomOverride);
       maxZRef.current = Math.max(1, ...Object.values(next).map((g) => g?.z ?? 1));
     },
     [storageKey],
@@ -418,9 +454,12 @@ export function ViewerCanvasLayout({
       if (!layoutInitRef.current) {
         const locked = loadUserLocked(storageKey);
         userLockedRef.current = locked;
+        const bundle = loadStoredBundle(storageKey);
         let merged: Stored;
+        let nextZoom: PanelZoomState;
         if (locked) {
-          merged = mergeSavedWithDefaults(loadStored(storageKey), w, h, hasVideo, hasPrimary, hasSecondary);
+          merged = mergeSavedWithDefaults(bundle.geoms, w, h, hasVideo, hasPrimary, hasSecondary);
+          nextZoom = mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary);
         } else if (hostLayoutRef.current) {
           const hostPx = denormalizeV1ToPixelPanels(
             hostLayoutRef.current.panels,
@@ -431,10 +470,17 @@ export function ViewerCanvasLayout({
             hasSecondary,
           );
           merged = mergeHostPixelsWithDefaults(hostPx, w, h, hasVideo, hasPrimary, hasSecondary);
+          nextZoom = mergePanelZoomFromPartial(
+            panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
+            hasVideo,
+            hasPrimary,
+            hasSecondary,
+          );
         } else {
-          merged = mergeSavedWithDefaults(loadStored(storageKey), w, h, hasVideo, hasPrimary, hasSecondary);
+          merged = mergeSavedWithDefaults(bundle.geoms, w, h, hasVideo, hasPrimary, hasSecondary);
+          nextZoom = mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary);
         }
-        applyLayout(merged);
+        applyLayout(merged, nextZoom);
         layoutInitRef.current = true;
         return;
       }
@@ -449,12 +495,19 @@ export function ViewerCanvasLayout({
           hasSecondary,
         );
         const merged = mergeHostPixelsWithDefaults(hostPx, w, h, hasVideo, hasPrimary, hasSecondary);
+        const nextZoom = mergePanelZoomFromPartial(
+          panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
+          hasVideo,
+          hasPrimary,
+          hasSecondary,
+        );
         setGeoms((prev) => {
           const before = JSON.stringify(prev);
           const after = JSON.stringify(merged);
           if (before === after) return prev;
-          saveStored(storageKey, merged);
+          saveStoredBundle(storageKey, merged, nextZoom);
           maxZRef.current = Math.max(1, ...Object.values(merged).map((g) => g?.z ?? 1));
+          setZoom(nextZoom);
           return merged;
         });
         return;
@@ -465,7 +518,7 @@ export function ViewerCanvasLayout({
         const before = JSON.stringify(prev);
         const after = JSON.stringify(clamped);
         if (before === after) return prev;
-        saveStored(storageKey, clamped);
+        saveStoredBundle(storageKey, clamped, zoomRef.current);
         return clamped;
       });
     };
@@ -494,9 +547,16 @@ export function ViewerCanvasLayout({
     if (width < 80 || height < 80) return;
     setPublishState("saving");
     setPublishErrorDetail(null);
+    const panelZoomPartial: Partial<Record<PanelId, number>> = {};
+    if (hasVideo) panelZoomPartial.video = zoom.video;
+    if (hasPrimary) panelZoomPartial.primary = zoom.primary;
+    if (hasSecondary) panelZoomPartial.secondary = zoom.secondary;
+
     const v1: ViewerCanvasLayoutV1 = {
       version: 1,
-      panels: remapPublishedPanelZs(normalizePixelPanelsToV1(geoms, width, height)),
+      panels: remapPublishedPanelZs(
+        normalizePixelPanelsToV1(geoms, width, height, VIEWER_CANVAS_MARGIN, panelZoomPartial),
+      ),
       mobile: { defaultTab: publishMobileTab },
     };
     try {
@@ -524,7 +584,7 @@ export function ViewerCanvasLayout({
       setPublishErrorDetail("Network error");
       setPublishState("err");
     }
-  }, [eventId, canPublishViewerLayout, geoms, publishMobileTab, router]);
+  }, [eventId, canPublishViewerLayout, geoms, publishMobileTab, router, zoom, hasVideo, hasPrimary, hasSecondary]);
 
   /** Raise stacking order on any mouse interaction with the window chrome (title, resize, edges). */
   const bringToFront = useCallback(
@@ -534,7 +594,7 @@ export function ViewerCanvasLayout({
         if (!g) return prev;
         maxZRef.current += 1;
         const next = { ...prev, [id]: { ...g, z: maxZRef.current } };
-        saveStored(storageKey, next);
+        saveStoredBundle(storageKey, next, zoomRef.current);
         return next;
       });
     },
@@ -576,7 +636,15 @@ export function ViewerCanvasLayout({
     } else {
       merged = mergeSavedWithDefaults({}, rect.width, rect.height, hasVideo, hasPrimary, hasSecondary);
     }
-    applyLayout(merged);
+    const nextZoom = hostLayoutRef.current
+      ? mergePanelZoomFromPartial(
+          panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
+          hasVideo,
+          hasPrimary,
+          hasSecondary,
+        )
+      : defaultPanelZoomState();
+    applyLayout(merged, nextZoom);
     layoutInitRef.current = true;
   }, [storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
 
@@ -596,7 +664,7 @@ export function ViewerCanvasLayout({
         if (!cur) return prev;
         maxZRef.current += 1;
         const next = { ...prev, [id]: { ...cur, x: d.x, y: d.y, z: maxZRef.current } };
-        saveStored(storageKey, next);
+        saveStoredBundle(storageKey, next, zoomRef.current);
         return next;
       });
     },
@@ -648,7 +716,7 @@ export function ViewerCanvasLayout({
               z: maxZRef.current,
             },
           };
-          saveStored(storageKey, next);
+          saveStoredBundle(storageKey, next, zoomRef.current);
           return next;
         });
       },
@@ -698,9 +766,29 @@ export function ViewerCanvasLayout({
     );
   };
 
-  const setVideoZoom = useCallback((z: number) => setZoom((s) => ({ ...s, video: z })), []);
-  const setPrimaryZoom = useCallback((z: number) => setZoom((s) => ({ ...s, primary: z })), []);
-  const setSecondaryZoom = useCallback((z: number) => setZoom((s) => ({ ...s, secondary: z })), []);
+  const setVideoZoom = useCallback((z: number) => {
+    setZoom((s) => {
+      const next = { ...s, video: clampPanelZoom(z) };
+      queueMicrotask(() => saveStoredBundle(storageKey, geomsRef.current, next));
+      return next;
+    });
+  }, [storageKey]);
+
+  const setPrimaryZoom = useCallback((z: number) => {
+    setZoom((s) => {
+      const next = { ...s, primary: clampPanelZoom(z) };
+      queueMicrotask(() => saveStoredBundle(storageKey, geomsRef.current, next));
+      return next;
+    });
+  }, [storageKey]);
+
+  const setSecondaryZoom = useCallback((z: number) => {
+    setZoom((s) => {
+      const next = { ...s, secondary: clampPanelZoom(z) };
+      queueMicrotask(() => saveStoredBundle(storageKey, geomsRef.current, next));
+      return next;
+    });
+  }, [storageKey]);
 
   const footer = useMemo(
     () => (
@@ -747,8 +835,8 @@ export function ViewerCanvasLayout({
               </span>
             ) : null}
             <p className="w-full text-[11px] text-zinc-500">
-              Publishes normalized window positions (desktop floating canvas). Mobile uses the tab you pick here, not raw
-              multi-window geometry.
+              Publishes normalized window positions, per-panel zoom %, and mobile first tab. Mobile uses the tab you pick
+              here, not raw multi-window geometry.
             </p>
           </div>
         ) : null}
