@@ -10,6 +10,12 @@ import { slugify } from "@/lib/slug";
 import { getSynapseVideoServerHints, provisionDailyRoomForEvent } from "@/lib/synapse-video";
 import { ensureHttpUrl } from "@/lib/url";
 import { normalizeVenmoHandle } from "@/lib/venmo-url";
+import {
+  addDurationToStart,
+  assertValidIanaTimeZone,
+  parseDurationHhMm,
+  parseEventStartInTimeZone,
+} from "@/lib/event-schedule";
 
 const emptyToUndef = (v: unknown) => {
   if (v === undefined || v === null) return undefined;
@@ -22,7 +28,8 @@ const eventFields = z.object({
   shortDescription: z.string().min(1).max(500),
   longDescription: z.preprocess(emptyToUndef, z.string().max(10000).optional()),
   startAt: z.string(),
-  endAt: z.string(),
+  /** Hours:minutes length, e.g. 2:30 or 02:30 */
+  duration: z.string().min(1).max(32),
   timezone: z.string().default("America/New_York"),
   status: z.enum(["DRAFT", "SCHEDULED", "LIVE", "COMPLETED", "ARCHIVED", "CANCELLED"]),
   statusOverride: z.preprocess(
@@ -76,15 +83,27 @@ export async function createEvent(formData: FormData) {
     slug = `${slugBase}-${n}`;
   }
 
+  const tz = parsed.data.timezone.trim();
+  let startAt: Date;
+  let endAt: Date;
+  try {
+    assertValidIanaTimeZone(tz);
+    startAt = parseEventStartInTimeZone(parsed.data.startAt, tz);
+    endAt = addDurationToStart(startAt, parseDurationHhMm(parsed.data.duration));
+  } catch (e) {
+    console.error("[createEvent] Invalid schedule:", e);
+    return;
+  }
+
   const created = await prisma.event.create({
     data: {
       slug,
       title: parsed.data.title,
       shortDescription: parsed.data.shortDescription,
       longDescription: parsed.data.longDescription || null,
-      startAt: new Date(parsed.data.startAt),
-      endAt: new Date(parsed.data.endAt),
-      timezone: parsed.data.timezone,
+      startAt,
+      endAt,
+      timezone: tz,
       status: parsed.data.status as EventStatus,
       statusOverride: parsed.data.statusOverride ? (parsed.data.statusOverride as EventStatus) : null,
       hostId,
@@ -141,15 +160,27 @@ export async function updateEvent(eventId: string, formData: FormData) {
 
   const broadcastStreamingMode = (parsed.data.videoRoomMode ?? "streaming") === "streaming";
 
+  const tz = parsed.data.timezone.trim();
+  let startAt: Date;
+  let endAt: Date;
+  try {
+    assertValidIanaTimeZone(tz);
+    startAt = parseEventStartInTimeZone(parsed.data.startAt, tz);
+    endAt = addDurationToStart(startAt, parseDurationHhMm(parsed.data.duration));
+  } catch (e) {
+    console.error("[updateEvent] Invalid schedule:", e);
+    return;
+  }
+
   await prisma.event.update({
     where: { id: eventId },
     data: {
       title: parsed.data.title,
       shortDescription: parsed.data.shortDescription,
       longDescription: parsed.data.longDescription || null,
-      startAt: new Date(parsed.data.startAt),
-      endAt: new Date(parsed.data.endAt),
-      timezone: parsed.data.timezone,
+      startAt,
+      endAt,
+      timezone: tz,
       status: parsed.data.status as EventStatus,
       statusOverride: parsed.data.statusOverride ? (parsed.data.statusOverride as EventStatus) : null,
       platformName: parsed.data.platformName || null,

@@ -2,16 +2,7 @@ import { createEvent, updateEvent } from "@/actions/events";
 import type { Event } from "@/generated/prisma";
 import { CoverImageInput } from "@/components/cover-image-input";
 import { SynapseVideoRoomButton } from "@/components/synapse-video-room-button";
-
-function toLocalInput(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const y = d.getFullYear();
-  const m = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const h = pad(d.getHours());
-  const min = pad(d.getMinutes());
-  return `${y}-${m}-${day}T${h}:${min}`;
-}
+import { formatDurationHhMm, formatStartForDatetimeLocal } from "@/lib/event-schedule";
 
 export function EventCreateForm({
   hostOptions,
@@ -62,8 +53,8 @@ export function EventEditForm({
           title: event.title,
           shortDescription: event.shortDescription,
           longDescription: event.longDescription ?? "",
-          startAt: toLocalInput(new Date(event.startAt)),
-          endAt: toLocalInput(new Date(event.endAt)),
+          startAt: formatStartForDatetimeLocal(event.startAt, event.timezone),
+          duration: formatDurationHhMm(event.startAt, event.endAt),
           timezone: event.timezone,
           status: event.status,
           statusOverride: event.statusOverride ?? "",
@@ -154,9 +145,24 @@ function FormFields({
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
+      <div>
+        <label className="block text-sm text-zinc-400">Timezone (IANA)</label>
+        <p className="mt-1 text-xs text-zinc-600">
+          Start time is interpreted in this zone — e.g.{" "}
+          <code className="text-zinc-500">America/New_York</code>,{" "}
+          <code className="text-zinc-500">America/Chicago</code>,{" "}
+          <code className="text-zinc-500">America/Los_Angeles</code>.
+        </p>
+        <input
+          name="timezone"
+          required
+          defaultValue={d.timezone ?? "America/New_York"}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm text-zinc-400">Start (local)</label>
+          <label className="block text-sm text-zinc-400">Start (in timezone above)</label>
           <input
             type="datetime-local"
             name="startAt"
@@ -166,23 +172,23 @@ function FormFields({
           />
         </div>
         <div>
-          <label className="block text-sm text-zinc-400">End (local)</label>
+          <label className="block text-sm text-zinc-400">Duration (hours:minutes)</label>
+          <p className="mt-1 text-xs text-zinc-600">
+            Length of the event, e.g. <code className="text-zinc-500">2:30</code> = 2h 30m,{" "}
+            <code className="text-zinc-500">01:15</code> = 1h 15m.
+          </p>
           <input
-            type="datetime-local"
-            name="endAt"
+            name="duration"
+            type="text"
             required
-            defaultValue={d.endAt}
+            inputMode="numeric"
+            placeholder="2:00"
+            defaultValue={d.duration ?? "02:00"}
+            pattern="[0-9]{1,3}:[0-9]{2}"
+            title="Hours and minutes, e.g. 2:30"
             className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
           />
         </div>
-      </div>
-      <div>
-        <label className="block text-sm text-zinc-400">Timezone label (display)</label>
-        <input
-          name="timezone"
-          defaultValue={d.timezone ?? "America/New_York"}
-          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

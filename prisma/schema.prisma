@@ -87,7 +87,7 @@ model Event {
   longDescription  String?
   startAt          DateTime
   endAt            DateTime
-  /// IANA zone for display copy (actual instants are UTC in DB)
+  /// IANA zone: start datetime-local is interpreted as wall time in this zone; also used for edit form + display copy.
   timezone         String   @default("America/New_York")
 
   /// Persisted workflow state
