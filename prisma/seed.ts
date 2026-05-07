@@ -7,7 +7,7 @@ import { resolveDatabaseUrl } from "./database-url";
 
 const url = resolveDatabaseUrl();
 const pool = new Pool({ connectionString: url });
-const adapter = new PrismaPg({ pool });
+const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 const DEMO_PASSWORD = "demo1234";
