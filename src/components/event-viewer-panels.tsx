@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { Session } from "next-auth";
 import { BroadcastEmbed, BROADCAST_IFRAME_ALLOW } from "@/components/broadcast-embed";
 import { BroadcastRestrictedNotice } from "@/components/broadcast-restricted-notice";
-import { MobileDualEmbedStage } from "@/components/mobile-dual-embed-stage";
 import { MobileViewerTabs } from "@/components/mobile-viewer-tabs";
 import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
 import { ViewerCanvasLayout } from "@/components/viewer-canvas-layout";
@@ -155,26 +154,6 @@ export function EventViewerPanels({
               eventId={eventId ?? null}
               canPublishViewerLayout={canPublishViewerLayout}
               hasMobileChatTab={hasMobileChatTab}
-            />
-          ) : hasPrimary && hasSecondary ? (
-            <MobileDualEmbedStage
-              hasVideo={hasVideo}
-              video={
-                hasVideo ? (
-                  <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">{videoSlot}</div>
-                ) : null
-              }
-              primary={
-                <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-                  <ToolEmbedFrame title="Embedded experience" src={primaryEmbedSrc!} />
-                </div>
-              }
-              secondary={
-                <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-                  <ToolEmbedFrame title="Second embedded experience" src={secondaryEmbedSrc!} />
-                </div>
-              }
-              chatSlot={chatSlot}
             />
           ) : (
             <MobileViewerTabs
