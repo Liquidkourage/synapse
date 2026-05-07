@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type MobileTabId = "video" | "primary" | "secondary" | "chat";
 
@@ -17,6 +17,8 @@ type Props = {
   primary: React.ReactNode;
   secondary: React.ReactNode;
   chatSlot?: React.ReactNode;
+  /** Host-published default tab (semantic mobile layout). Ignored after the user picks a tab. */
+  defaultTabId?: MobileTabId;
 };
 
 function mobileLabelForVideo(printLabel: string): string {
@@ -36,6 +38,7 @@ export function MobileViewerTabs({
   primary,
   secondary,
   chatSlot,
+  defaultTabId,
 }: Props) {
   const tabs: TabDef[] = [];
   if (hasVideo) tabs.push({ id: "video", label: mobileLabelForVideo(videoLabel), content: video });
@@ -57,10 +60,21 @@ export function MobileViewerTabs({
   }
 
   const [active, setActive] = useState(0);
+  const userPickedTab = useRef(false);
+
+  useEffect(() => {
+    userPickedTab.current = false;
+  }, [defaultTabId]);
 
   useEffect(() => {
     setActive((a) => Math.min(a, Math.max(0, tabs.length - 1)));
   }, [tabs.length]);
+
+  useEffect(() => {
+    if (userPickedTab.current || !defaultTabId || tabs.length === 0) return;
+    const i = tabs.findIndex((t) => t.id === defaultTabId);
+    if (i >= 0) setActive(i);
+  }, [defaultTabId, hasVideo, hasPrimary, hasSecondary, Boolean(chatSlot), videoLabel, primaryLabel, secondaryLabel]);
 
   if (tabs.length === 0) return null;
 
@@ -86,7 +100,10 @@ export function MobileViewerTabs({
                   ? "bg-zinc-900 text-white ring-1 ring-zinc-700 ring-b-transparent"
                   : "text-zinc-500 hover:text-zinc-300"
               }`}
-              onClick={() => setActive(i)}
+              onClick={() => {
+                userPickedTab.current = true;
+                setActive(i);
+              }}
             >
               {tab.label}
             </button>

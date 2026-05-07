@@ -8,6 +8,7 @@ import { MobileViewerTabs } from "@/components/mobile-viewer-tabs";
 import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
 import { ViewerCanvasLayout } from "@/components/viewer-canvas-layout";
 import { useMdUp } from "@/hooks/use-md-up";
+import type { ViewerCanvasLayoutV1 } from "@/lib/viewer-canvas-layout-geometry";
 
 function ToolEmbedFrame({ title, src }: { title: string; src: string }) {
   return (
@@ -45,10 +46,18 @@ type Props = {
   compact?: boolean;
   /** When set (typically mobile), Chat tab shows this; desktop keeps chat in EventStageShell right column */
   chatSlot?: React.ReactNode;
+  /** Persisted host layout (normalized); viewers see until they customize locally. */
+  hostViewerLayout?: ViewerCanvasLayoutV1 | null;
+  /** Save-for-all-viewers control + API auth */
+  canPublishViewerLayout?: boolean;
+  /** Defaults to true — stage pages always offer chat on mobile. */
+  hasMobileChatTab?: boolean;
+  eventId?: string;
 };
 
 /**
- * Viewer: free-form canvas — drag title bars, resize edges/corners, per-panel zoom; layout persisted locally.
+ * Viewer: floating canvas (md+) with optional host-published default layout; mobile uses tabs + host default tab.
+ * Local drag/resize sets a per-browser override until "Reset layout" (back to host default or built-in defaults).
  */
 export function EventViewerPanels({
   storageKey,
@@ -69,6 +78,10 @@ export function EventViewerPanels({
   liveSlug,
   compact = false,
   chatSlot,
+  hostViewerLayout = null,
+  canPublishViewerLayout = false,
+  hasMobileChatTab = true,
+  eventId,
 }: Props) {
   const mdUp = useMdUp();
   const showPrimary = !!(embedUrl && gameEmbed.show && primaryEmbedSrc);
@@ -137,6 +150,10 @@ export function EventViewerPanels({
               hasPrimary={hasPrimary}
               hasSecondary={hasSecondary}
               compact={compact}
+              hostDefaultLayout={hostViewerLayout}
+              eventId={eventId ?? null}
+              canPublishViewerLayout={canPublishViewerLayout}
+              hasMobileChatTab={hasMobileChatTab}
             />
           ) : (
             <MobileViewerTabs
@@ -146,6 +163,7 @@ export function EventViewerPanels({
               videoLabel={broadcastLabel}
               primaryLabel="Game / tool"
               secondaryLabel="Public display"
+              defaultTabId={hostViewerLayout?.mobile?.defaultTab}
               video={
                 hasVideo ? (
                   <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">{videoNode}</div>

@@ -15,6 +15,7 @@ import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
+import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -90,6 +91,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   ]);
 
   const chatMessages = [...messages].reverse().map((m) => toChatMessageClient(m));
+
+  const hostViewerLayout = parseViewerCanvasLayoutFromDb(event.viewerCanvasLayout);
+  const canPublishViewerLayout =
+    !!session?.user &&
+    (session.user.role === "ADMIN" ||
+      (session.user.role === "PRODUCER" && event.producerId === session.user.id) ||
+      (session.user.role === "HOST" && session.user.id === event.hostId));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -210,6 +218,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         secondaryEmbedSrc={secondaryEmbedSrc}
         externalUrl={event.externalUrl}
         embedWaitingNote="Configured embeds appear here during the live window."
+        hostViewerLayout={hostViewerLayout}
+        canPublishViewerLayout={canPublishViewerLayout}
       />
 
       {(event.replayUrl || event.resultsSummary) && (

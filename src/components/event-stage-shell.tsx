@@ -5,6 +5,7 @@ import { EventChat } from "@/components/event-chat";
 import { EventViewerPanels, type EventViewerPanelsGameEmbed } from "@/components/event-viewer-panels";
 import { useLgUp } from "@/hooks/use-lg-up";
 import type { ChatMessageClient } from "@/lib/chat-message-dto";
+import type { ViewerCanvasLayoutV1 } from "@/lib/viewer-canvas-layout-geometry";
 
 type ViewerPanelsProps = {
   storageKey: string;
@@ -24,6 +25,9 @@ type ViewerPanelsProps = {
   embedWaitingNote?: string;
   liveSlug?: string;
   compact?: boolean;
+  hostViewerLayout?: ViewerCanvasLayoutV1 | null;
+  canPublishViewerLayout?: boolean;
+  hasMobileChatTab?: boolean;
 };
 
 export type EventStageShellProps = ViewerPanelsProps & {
@@ -74,7 +78,7 @@ export function EventStageShell({ left, chat, banner, ...panelProps }: EventStag
 
         <div className="relative flex min-h-0 min-w-0 flex-col border-zinc-800 px-2 py-2 sm:px-3 lg:border-x lg:px-3 lg:py-3">
           <div className="flex min-h-[min(52dvh,560px)] flex-1 flex-col lg:min-h-[min(72dvh,calc(100dvh-10.5rem))]">
-            <EventViewerPanels {...panelProps} chatSlot={lgUp ? undefined : chatEl} />
+            <EventViewerPanels {...panelProps} chatSlot={lgUp ? undefined : chatEl} eventId={chat.eventId} />
           </div>
         </div>
 

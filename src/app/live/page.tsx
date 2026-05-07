@@ -14,6 +14,7 @@ import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
+import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
 
 export default async function LivePage() {
   const [live, session] = await Promise.all([getPublicLiveEvent(), auth()]);
@@ -68,6 +69,14 @@ export default async function LivePage() {
     live?.broadcastEmbedUrl && isDailyNativeBroadcastUrl(live.broadcastEmbedUrl)
       ? "Synapse video"
       : "Host video";
+
+  const hostViewerLayout = live ? parseViewerCanvasLayoutFromDb(live.viewerCanvasLayout) : null;
+  const canPublishViewerLayout =
+    !!live &&
+    !!session?.user &&
+    (session.user.role === "ADMIN" ||
+      (session.user.role === "PRODUCER" && live.producerId === session.user.id) ||
+      (session.user.role === "HOST" && session.user.id === live.hostId));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -140,6 +149,8 @@ export default async function LivePage() {
           externalUrl={live.externalUrl}
           liveSlug={live.slug}
           compact
+          hostViewerLayout={hostViewerLayout}
+          canPublishViewerLayout={canPublishViewerLayout}
         />
       ) : (
         <div className="shrink-0 px-4 sm:px-5 lg:px-6 xl:px-8">

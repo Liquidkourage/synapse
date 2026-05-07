@@ -120,6 +120,9 @@ model Event {
   /// Venmo username (no @) for optional tip/Support link — opens Venmo in a new tab; not an official embed widget.
   venmoHandle String?
 
+  /// Host-published viewer layout: normalized panel rects (0–1) for md+ floating canvas; optional mobile default tab.
+  viewerCanvasLayout Json?
+
   coverImageUrl  String?
   bannerImageUrl String?
   replayUrl      String?

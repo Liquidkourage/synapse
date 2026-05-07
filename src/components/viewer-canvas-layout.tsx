@@ -3,8 +3,17 @@
 import { Rnd } from "react-rnd";
 import type { ResizeDirection } from "re-resizable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  denormalizeV1ToPixelPanels,
+  normalizePixelPanelsToV1,
+  VIEWER_CANVAS_MARGIN,
+  type ViewerCanvasLayoutV1,
+  type ViewerMobileTabId,
+} from "@/lib/viewer-canvas-layout-geometry";
 
 const LS_PREFIX = "synapse-viewer-canvas-v1";
+const LS_USER_PREFIX = "synapse-viewer-canvas-user-v1";
 
 type PanelId = "video" | "primary" | "secondary";
 
@@ -18,7 +27,7 @@ type PanelGeom = {
 
 type Stored = Partial<Record<PanelId, PanelGeom>>;
 
-const CANVAS_MARGIN = 10;
+const CANVAS_MARGIN = VIEWER_CANVAS_MARGIN;
 const PANEL_MIN_W = 260;
 const PANEL_MIN_H = 140;
 
@@ -48,6 +57,31 @@ function clampStored(
   if (hasPrimary && out.primary) out.primary = clampGeom(out.primary, canvasW, canvasH);
   if (hasSecondary && out.secondary) out.secondary = clampGeom(out.secondary, canvasW, canvasH);
   return out;
+}
+
+function loadUserLocked(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(`${LS_USER_PREFIX}:${key}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setUserLocked(key: string) {
+  try {
+    localStorage.setItem(`${LS_USER_PREFIX}:${key}`, "1");
+  } catch {
+    /* */
+  }
+}
+
+function clearUserLocked(key: string) {
+  try {
+    localStorage.removeItem(`${LS_USER_PREFIX}:${key}`);
+  } catch {
+    /* */
+  }
 }
 
 function loadStored(key: string): Stored {
@@ -132,6 +166,20 @@ function mergeSavedWithDefaults(
   if (hasVideo) out.video = saved.video ?? d.video;
   if (hasPrimary) out.primary = saved.primary ?? d.primary;
   if (hasSecondary) out.secondary = saved.secondary ?? d.secondary;
+  return clampStored(out, w, h, hasVideo, hasPrimary, hasSecondary);
+}
+
+/** Host normalized layout denormalized + fills missing panels from built-in defaults. */
+function mergeHostPixelsWithDefaults(
+  hostPx: Stored,
+  w: number,
+  h: number,
+  hasVideo: boolean,
+  hasPrimary: boolean,
+  hasSecondary: boolean,
+): Stored {
+  const d = defaultGeoms(w, h, hasVideo, hasPrimary, hasSecondary);
+  const out: Stored = { ...d, ...hostPx };
   return clampStored(out, w, h, hasVideo, hasPrimary, hasSecondary);
 }
 
@@ -294,6 +342,10 @@ export function ViewerCanvasLayout({
   primaryLabel = "Game / tool (primary)",
   secondaryLabel = "Public display (second embed; e.g. VDO.Ninja viewer link)",
   compact = false,
+  hostDefaultLayout = null,
+  eventId = null,
+  canPublishViewerLayout = false,
+  hasMobileChatTab = false,
 }: {
   storageKey: string;
   video?: React.ReactNode;
@@ -305,23 +357,59 @@ export function ViewerCanvasLayout({
   videoLabel?: string;
   primaryLabel?: string;
   secondaryLabel?: string;
-  /** Flush canvas to horizontal edges (e.g. /live) */
   compact?: boolean;
+  /** Server-stored normalized layout — viewers use this until they customize (local override). */
+  hostDefaultLayout?: ViewerCanvasLayoutV1 | null;
+  eventId?: string | null;
+  canPublishViewerLayout?: boolean;
+  /** Whether mobile layout includes a Chat tab (for publish default tab options). */
+  hasMobileChatTab?: boolean;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const layoutInitRef = useRef(false);
+  const hostLayoutRef = useRef<ViewerCanvasLayoutV1 | null>(null);
+  const userLockedRef = useRef(false);
+  const maxZRef = useRef(3);
+  hostLayoutRef.current = hostDefaultLayout ?? null;
+
+  const hostLayoutSig = useMemo(
+    () => (hostDefaultLayout ? JSON.stringify(hostDefaultLayout) : ""),
+    [hostDefaultLayout],
+  );
+
   const [mounted, setMounted] = useState(false);
   const [geoms, setGeoms] = useState<Stored>({});
   const [zoom, setZoom] = useState({ video: 1, primary: 1, secondary: 1 });
-  /** While true, iframes are pointer-events:none so they cannot steal drag/resize from react-rnd. */
   const [canvasPointerLock, setCanvasPointerLock] = useState(false);
-  const maxZRef = useRef(3);
+  const [publishMobileTab, setPublishMobileTab] = useState<ViewerMobileTabId>("video");
+  const [publishState, setPublishState] = useState<"idle" | "saving" | "ok" | "err">("idle");
+
+  const router = useRouter();
 
   useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     layoutInitRef.current = false;
     setGeoms({});
-  }, [storageKey]);
+  }, [storageKey, hostLayoutSig]);
+
+  useEffect(() => {
+    const d = hostDefaultLayout?.mobile?.defaultTab;
+    if (d) setPublishMobileTab(d);
+  }, [hostLayoutSig, hostDefaultLayout?.mobile?.defaultTab]);
+
+  useEffect(() => {
+    const ok =
+      (publishMobileTab === "video" && hasVideo) ||
+      (publishMobileTab === "primary" && hasPrimary) ||
+      (publishMobileTab === "secondary" && hasSecondary) ||
+      (publishMobileTab === "chat" && hasMobileChatTab);
+    if (ok) return;
+    if (hasVideo) setPublishMobileTab("video");
+    else if (hasPrimary) setPublishMobileTab("primary");
+    else if (hasSecondary) setPublishMobileTab("secondary");
+    else if (hasMobileChatTab) setPublishMobileTab("chat");
+  }, [hasVideo, hasPrimary, hasSecondary, hasMobileChatTab, publishMobileTab]);
 
   const applyLayout = useCallback(
     (next: Stored) => {
@@ -340,12 +428,50 @@ export function ViewerCanvasLayout({
     const run = (w: number, h: number) => {
       if (w < 80 || h < 80) return;
       if (!layoutInitRef.current) {
-        const saved = loadStored(storageKey);
-        const merged = mergeSavedWithDefaults(saved, w, h, hasVideo, hasPrimary, hasSecondary);
+        const locked = loadUserLocked(storageKey);
+        userLockedRef.current = locked;
+        let merged: Stored;
+        if (locked) {
+          merged = mergeSavedWithDefaults(loadStored(storageKey), w, h, hasVideo, hasPrimary, hasSecondary);
+        } else if (hostLayoutRef.current) {
+          const hostPx = denormalizeV1ToPixelPanels(
+            hostLayoutRef.current.panels,
+            w,
+            h,
+            hasVideo,
+            hasPrimary,
+            hasSecondary,
+          );
+          merged = mergeHostPixelsWithDefaults(hostPx, w, h, hasVideo, hasPrimary, hasSecondary);
+        } else {
+          merged = mergeSavedWithDefaults(loadStored(storageKey), w, h, hasVideo, hasPrimary, hasSecondary);
+        }
         applyLayout(merged);
         layoutInitRef.current = true;
         return;
       }
+
+      if (!userLockedRef.current && hostLayoutRef.current) {
+        const hostPx = denormalizeV1ToPixelPanels(
+          hostLayoutRef.current.panels,
+          w,
+          h,
+          hasVideo,
+          hasPrimary,
+          hasSecondary,
+        );
+        const merged = mergeHostPixelsWithDefaults(hostPx, w, h, hasVideo, hasPrimary, hasSecondary);
+        setGeoms((prev) => {
+          const before = JSON.stringify(prev);
+          const after = JSON.stringify(merged);
+          if (before === after) return prev;
+          saveStored(storageKey, merged);
+          maxZRef.current = Math.max(1, ...Object.values(merged).map((g) => g?.z ?? 1));
+          return merged;
+        });
+        return;
+      }
+
       setGeoms((prev) => {
         const clamped = clampStored(prev, w, h, hasVideo, hasPrimary, hasSecondary);
         const before = JSON.stringify(prev);
@@ -365,7 +491,42 @@ export function ViewerCanvasLayout({
     run(r.width, r.height);
 
     return () => ro.disconnect();
-  }, [mounted, storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
+  }, [mounted, storageKey, hostLayoutSig, hasVideo, hasPrimary, hasSecondary, applyLayout]);
+
+  const markUserCustomized = useCallback(() => {
+    setUserLocked(storageKey);
+    userLockedRef.current = true;
+  }, [storageKey]);
+
+  const publishLayout = useCallback(async () => {
+    if (!eventId || !canPublishViewerLayout) return;
+    const el = canvasRef.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    if (width < 80 || height < 80) return;
+    setPublishState("saving");
+    const v1: ViewerCanvasLayoutV1 = {
+      version: 1,
+      panels: normalizePixelPanelsToV1(geoms, width, height),
+      mobile: { defaultTab: publishMobileTab },
+    };
+    try {
+      const res = await fetch(`/api/host/events/${eventId}/viewer-canvas-layout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(v1),
+      });
+      if (!res.ok) {
+        setPublishState("err");
+        return;
+      }
+      setPublishState("ok");
+      router.refresh();
+      setTimeout(() => setPublishState("idle"), 2500);
+    } catch {
+      setPublishState("err");
+    }
+  }, [eventId, canPublishViewerLayout, geoms, publishMobileTab, router]);
 
   /** Raise stacking order on any mouse interaction with the window chrome (title, resize, edges). */
   const bringToFront = useCallback(
@@ -392,6 +553,8 @@ export function ViewerCanvasLayout({
   }, []);
 
   const resetLayout = useCallback(() => {
+    clearUserLocked(storageKey);
+    userLockedRef.current = false;
     try {
       localStorage.removeItem(`${LS_PREFIX}:${storageKey}`);
     } catch {
@@ -401,7 +564,20 @@ export function ViewerCanvasLayout({
     if (!el) return;
     const rect = el.getBoundingClientRect();
     if (rect.width < 80 || rect.height < 80) return;
-    const merged = mergeSavedWithDefaults({}, rect.width, rect.height, hasVideo, hasPrimary, hasSecondary);
+    let merged: Stored;
+    if (hostLayoutRef.current) {
+      const hostPx = denormalizeV1ToPixelPanels(
+        hostLayoutRef.current.panels,
+        rect.width,
+        rect.height,
+        hasVideo,
+        hasPrimary,
+        hasSecondary,
+      );
+      merged = mergeHostPixelsWithDefaults(hostPx, rect.width, rect.height, hasVideo, hasPrimary, hasSecondary);
+    } else {
+      merged = mergeSavedWithDefaults({}, rect.width, rect.height, hasVideo, hasPrimary, hasSecondary);
+    }
     applyLayout(merged);
     layoutInitRef.current = true;
   }, [storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
@@ -416,6 +592,7 @@ export function ViewerCanvasLayout({
   const onDragStop = useCallback(
     (id: PanelId) => (_e: unknown, d: { x: number; y: number }) => {
       setCanvasPointerLock(false);
+      markUserCustomized();
       setGeoms((prev) => {
         const cur = prev[id];
         if (!cur) return prev;
@@ -425,7 +602,7 @@ export function ViewerCanvasLayout({
         return next;
       });
     },
-    [storageKey],
+    [storageKey, markUserCustomized],
   );
 
   const onResize = useCallback(
@@ -457,6 +634,7 @@ export function ViewerCanvasLayout({
         pos: { x: number; y: number },
       ) => {
         setCanvasPointerLock(false);
+        markUserCustomized();
         setGeoms((prev) => {
           const cur = prev[id];
           if (!cur) return prev;
@@ -476,7 +654,7 @@ export function ViewerCanvasLayout({
           return next;
         });
       },
-    [storageKey],
+    [storageKey, markUserCustomized],
   );
 
   const renderPanel = (
@@ -523,16 +701,63 @@ export function ViewerCanvasLayout({
 
   const footer = useMemo(
     () => (
-      <p
-        className={`shrink-0 text-xs text-zinc-600 ${compact ? "max-md:px-4 md:px-0" : ""}`}
-      >
-        Click the toolbar (title or zoom) to raise a window. Drag the title to move; drag edges or corners to resize.{" "}
-        <button type="button" onClick={resetLayout} className="text-violet-400 hover:underline">
-          Reset layout
-        </button>
-      </p>
+      <div className={`shrink-0 space-y-2 text-xs text-zinc-600 ${compact ? "max-md:px-4 md:px-0" : ""}`}>
+        <p>
+          Click the toolbar (title or zoom) to raise a window. Drag the title to move; drag edges or corners to resize.{" "}
+          <button type="button" onClick={resetLayout} className="text-violet-400 hover:underline">
+            Reset layout
+          </button>{" "}
+          <span className="text-zinc-500">
+            (Reset returns to the host default when the event has one; otherwise built-in defaults.)
+          </span>
+        </p>
+        {canPublishViewerLayout && eventId ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-amber-500/25 bg-amber-950/15 p-3 text-zinc-300">
+            <label className="flex min-w-[10rem] flex-col gap-1 text-[11px] uppercase tracking-wide text-zinc-500">
+              Mobile first tab
+              <select
+                value={publishMobileTab}
+                onChange={(e) => setPublishMobileTab(e.target.value as ViewerMobileTabId)}
+                className="mt-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white"
+              >
+                {hasVideo ? <option value="video">{videoLabel.length > 24 ? "Video" : videoLabel}</option> : null}
+                {hasPrimary ? <option value="primary">Game / tool</option> : null}
+                {hasSecondary ? <option value="secondary">Public display</option> : null}
+                {hasMobileChatTab ? <option value="chat">Chat</option> : null}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => void publishLayout()}
+              disabled={publishState === "saving"}
+              className="rounded-lg bg-amber-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+            >
+              {publishState === "saving" ? "Saving…" : "Save layout for all viewers"}
+            </button>
+            {publishState === "ok" ? <span className="text-emerald-400">Saved.</span> : null}
+            {publishState === "err" ? <span className="text-red-400">Save failed.</span> : null}
+            <p className="w-full text-[11px] text-zinc-500">
+              Publishes normalized window positions (desktop floating canvas). Mobile uses the tab you pick here, not raw
+              multi-window geometry.
+            </p>
+          </div>
+        ) : null}
+      </div>
     ),
-    [resetLayout, compact],
+    [
+      resetLayout,
+      compact,
+      canPublishViewerLayout,
+      eventId,
+      publishMobileTab,
+      publishLayout,
+      publishState,
+      hasVideo,
+      hasPrimary,
+      hasSecondary,
+      hasMobileChatTab,
+      videoLabel,
+    ],
   );
 
   if (!mounted) {
