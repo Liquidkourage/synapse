@@ -150,6 +150,7 @@ function FormFields({
         defaultStartAt={d.startAt}
         defaultDuration={d.duration ?? "02:00"}
         defaultTimezone={d.timezone ?? "America/New_York"}
+        preferStoredTimezone={!eventId}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

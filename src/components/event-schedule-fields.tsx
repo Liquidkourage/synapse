@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const CUSTOM_TZ = "__custom__";
+/** Remember host's last-used IANA zone on this device (new events + updates when you change the dropdown). */
+const HOST_PREFERRED_TIMEZONE_KEY = "synapse-host-preferred-timezone";
 
 const ZONE_OPTIONS: { value: string; label: string }[] = [
   { value: "America/New_York", label: "Eastern (US & Canada)" },
@@ -58,24 +60,63 @@ function normalizeDurationInit(dur: string): { h: number; m: number } {
   return { h, m };
 }
 
+function loadPreferredTimezone(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = localStorage.getItem(HOST_PREFERRED_TIMEZONE_KEY)?.trim();
+    return v || null;
+  } catch {
+    return null;
+  }
+}
+
+function persistPreferredTimezone(tz: string) {
+  try {
+    const t = tz.trim();
+    if (t) localStorage.setItem(HOST_PREFERRED_TIMEZONE_KEY, t);
+  } catch {
+    /* */
+  }
+}
+
 /**
  * Tap-friendly schedule: native date & time pickers, timezone menu, duration hours/minutes selects.
  * Submits the same `startAt`, `duration`, `timezone` fields the server already expects.
+ *
+ * `preferStoredTimezone`: for **new** events, prefill from last zone saved on this device; any change updates that save.
  */
 export function EventScheduleFields({
   defaultStartAt = "",
   defaultDuration = "02:00",
   defaultTimezone = "America/New_York",
+  preferStoredTimezone = false,
 }: {
   defaultStartAt?: string;
   defaultDuration?: string;
   defaultTimezone?: string;
+  /** When true (create flow), load browser-saved IANA zone if present. Saves on every timezone change. */
+  preferStoredTimezone?: boolean;
 }) {
   const knownZones = useMemo(() => new Set(ZONE_OPTIONS.map((z) => z.value)), []);
+  const storedTzApplied = useRef(false);
 
   const initialOther = !knownZones.has(defaultTimezone);
   const [tzChoice, setTzChoice] = useState<string>(initialOther ? CUSTOM_TZ : defaultTimezone);
   const [tzCustom, setTzCustom] = useState(initialOther ? defaultTimezone : "");
+
+  useEffect(() => {
+    if (!preferStoredTimezone || storedTzApplied.current) return;
+    const saved = loadPreferredTimezone();
+    if (!saved) return;
+    storedTzApplied.current = true;
+    if (knownZones.has(saved)) {
+      setTzChoice(saved);
+      setTzCustom("");
+    } else {
+      setTzChoice(CUSTOM_TZ);
+      setTzCustom(saved);
+    }
+  }, [preferStoredTimezone, knownZones]);
 
   const resolvedTz = tzChoice === CUSTOM_TZ ? tzCustom.trim() : tzChoice;
 
@@ -95,7 +136,7 @@ export function EventScheduleFields({
       <legend className="px-1 text-sm font-medium text-zinc-300">When</legend>
       <p className="text-xs leading-snug text-zinc-500">
         Use the date and time pickers (calendar / clock on phones). Everything is interpreted in the timezone you pick
-        below — no typing unless you need a custom zone.
+        below — no typing unless you need a custom zone. Your last timezone on this device is remembered for new events.
       </p>
 
       <input type="hidden" name="startAt" value={startAtValue} />
@@ -106,7 +147,11 @@ export function EventScheduleFields({
         <label className="block text-sm text-zinc-400">Timezone</label>
         <select
           value={tzChoice}
-          onChange={(e) => setTzChoice(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setTzChoice(v);
+            if (v !== CUSTOM_TZ) persistPreferredTimezone(v);
+          }}
           className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
         >
           {ZONE_OPTIONS.map((z) => (
@@ -121,6 +166,10 @@ export function EventScheduleFields({
             type="text"
             value={tzCustom}
             onChange={(e) => setTzCustom(e.target.value)}
+            onBlur={() => {
+              const t = tzCustom.trim();
+              if (t) persistPreferredTimezone(t);
+            }}
             placeholder="e.g. America/Boise"
             required
             autoComplete="off"
