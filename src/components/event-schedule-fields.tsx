@@ -34,6 +34,62 @@ function localTodayYmd(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Days in month; month is 1–12 */
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+function parseYmd(ymd: string): { y: number; m: number; d: number } {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return parseYmd(localTodayYmd());
+  return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+}
+
+function parseHm(hm: string): { h: number; min: number } {
+  const p = hm.trim().split(":");
+  const h = Math.min(23, Math.max(0, Number(p[0] ?? 20)));
+  const min = Math.min(59, Math.max(0, Number(p[1] ?? 0)));
+  return { h, min };
+}
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+/** Includes the given year (e.g. when editing an existing event) and a practical window around today. */
+function yearRangeContaining(anchorYear: number): number[] {
+  const nowY = new Date().getFullYear();
+  const start = Math.min(anchorYear, nowY - 1);
+  const end = Math.max(anchorYear, nowY + 5);
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+}
+
+/** UTC noon trick so 12 AM / PM labels match wall hour 0–23 */
+function formatHour12Label(hour24: number): string {
+  const d = new Date(Date.UTC(2000, 0, 1, hour24, 0, 0));
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }).format(d);
+}
+
 function splitStart(startAt: string): { date: string; time: string } {
   const t = startAt.trim();
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) {
@@ -168,8 +224,8 @@ export function EventScheduleFields({
       <legend className="px-1 text-sm font-medium text-zinc-300">When</legend>
 
       <p id={`${P}-overview`} className="text-xs leading-snug text-zinc-500">
-        Date and time use your device&apos;s calendar and clock. Times are wall-clock in the timezone you choose below
-        (not UTC). Your last timezone on this device is remembered for new events.
+        Start date and time are chosen from the lists below — no typing needed. Times are wall-clock in the timezone you
+        choose (not UTC). Your last timezone on this device is remembered for new events.
       </p>
 
       <div
@@ -254,39 +310,132 @@ export function EventScheduleFields({
           Start
         </p>
         <p id={`${P}-start-group-hint`} className="mt-1 text-xs text-zinc-500">
-          Required: choose a calendar date and a clock time (you can use 12- or 24-hour format depending on your device).
+          Required: pick year, month, day, hour, and minute from the menus — works entirely with pointer or keyboard.
         </p>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div className="mt-3 space-y-4">
           <div>
-            <label htmlFor={`${P}-start-date`} className="block text-sm font-medium text-zinc-300">
-              Start date
-            </label>
-            <input
-              id={`${P}-start-date`}
-              type="date"
-              required
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              autoComplete="off"
-              aria-describedby={describedByOverview}
-              className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
-            />
+            <p className="text-sm font-medium text-zinc-300">Start date</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-3">
+              <div>
+                <label htmlFor={`${P}-start-year`} className="block text-xs font-medium text-zinc-400">
+                  Year
+                </label>
+                <select
+                  id={`${P}-start-year`}
+                  value={parseYmd(date).y}
+                  onChange={(e) => {
+                    const y = Number(e.target.value);
+                    const { m, d } = parseYmd(date);
+                    const dim = daysInMonth(y, m);
+                    setDate(`${y}-${pad2(m)}-${pad2(Math.min(d, dim))}`);
+                  }}
+                  aria-describedby={describedByOverview}
+                  className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
+                >
+                  {yearRangeContaining(parseYmd(date).y).map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor={`${P}-start-month`} className="block text-xs font-medium text-zinc-400">
+                  Month
+                </label>
+                <select
+                  id={`${P}-start-month`}
+                  value={parseYmd(date).m}
+                  onChange={(e) => {
+                    const month = Number(e.target.value);
+                    const { y, d } = parseYmd(date);
+                    const dim = daysInMonth(y, month);
+                    setDate(`${y}-${pad2(month)}-${pad2(Math.min(d, dim))}`);
+                  }}
+                  aria-describedby={describedByOverview}
+                  className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
+                >
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={name} value={i + 1}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor={`${P}-start-day`} className="block text-xs font-medium text-zinc-400">
+                  Day
+                </label>
+                <select
+                  id={`${P}-start-day`}
+                  value={parseYmd(date).d}
+                  onChange={(e) => {
+                    const day = Number(e.target.value);
+                    const { y, m } = parseYmd(date);
+                    setDate(`${y}-${pad2(m)}-${pad2(day)}`);
+                  }}
+                  aria-describedby={describedByOverview}
+                  className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
+                >
+                  {Array.from({ length: daysInMonth(parseYmd(date).y, parseYmd(date).m) }, (_, i) => i + 1).map(
+                    (d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+            </div>
           </div>
           <div>
-            <label htmlFor={`${P}-start-time`} className="block text-sm font-medium text-zinc-300">
-              Start time
-            </label>
-            <input
-              id={`${P}-start-time`}
-              type="time"
-              required
-              step={60}
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              autoComplete="off"
-              aria-describedby={describedByOverview}
-              className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
-            />
+            <p className="text-sm font-medium text-zinc-300">Start time</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor={`${P}-start-hour`} className="block text-xs font-medium text-zinc-400">
+                  Hour
+                </label>
+                <select
+                  id={`${P}-start-hour`}
+                  value={parseHm(time).h}
+                  onChange={(e) => {
+                    const h = Number(e.target.value);
+                    const { min } = parseHm(time);
+                    setTime(`${pad2(h)}:${pad2(min)}`);
+                  }}
+                  aria-describedby={describedByOverview}
+                  className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {formatHour12Label(h)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor={`${P}-start-minute`} className="block text-xs font-medium text-zinc-400">
+                  Minute
+                </label>
+                <select
+                  id={`${P}-start-minute`}
+                  value={parseHm(time).min}
+                  onChange={(e) => {
+                    const min = Number(e.target.value);
+                    const { h } = parseHm(time);
+                    setTime(`${pad2(h)}:${pad2(min)}`);
+                  }}
+                  aria-describedby={describedByOverview}
+                  className="mt-1 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
+                >
+                  {MINUTES.map((m) => (
+                    <option key={m} value={m}>
+                      {pad2(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       </div>
