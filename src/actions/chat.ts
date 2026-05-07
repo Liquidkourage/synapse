@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { relaySynapseChatToTwitch } from "@/lib/twitch-send-chat";
@@ -58,5 +57,6 @@ export async function postEventMessage(formData: FormData) {
     });
   }
 
-  revalidatePath(`/events/${eventSlug}`);
+  // Do not revalidate the event page here: it remounts the broadcast iframe (e.g. Daily) and
+  // interrupts the stream. Chat UI updates via client fetch + polling.
 }

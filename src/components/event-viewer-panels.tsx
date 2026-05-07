@@ -96,7 +96,7 @@ export function EventViewerPanels({
 
   const videoSlot =
     hasVideo && broadcastIframeSrc ? (
-      <BroadcastEmbed src={broadcastIframeSrc} title="Live host video" fill />
+      <BroadcastEmbed src={broadcastIframeSrc} title="Live host video" fill showOpenInNewTab />
     ) : hasVideo && !canViewBroadcast ? (
       <div className="flex min-h-[160px] flex-1 items-center px-2">
         <BroadcastRestrictedNotice session={session} />

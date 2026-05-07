@@ -1,7 +1,6 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { postEventMessage } from "@/actions/chat";
 import type { ChatMessageClient } from "@/lib/chat-message-dto";
@@ -37,7 +36,6 @@ export function EventChat({
   /** `sideRail`: wide right column. `stageRail`: narrow ~15% column (tighter UI). `embedded`: mobile viewer tab. */
   layout?: "default" | "sideRail" | "embedded" | "stageRail";
 }) {
-  const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -126,7 +124,6 @@ export function EventChat({
         className={`flex flex-col gap-2 ${stageRail ? "mt-2 shrink-0 border-t border-zinc-800/80 pt-2" : railish || embedded ? "sm:flex-row mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4 sm:flex-row"}`}
         action={async (fd) => {
           await postEventMessage(fd);
-          router.refresh();
           const res = await fetch(`/api/events/${eventId}/chat`, { cache: "no-store" });
           if (res.ok) {
             const data = (await res.json()) as { messages: ChatMessageClient[] };
