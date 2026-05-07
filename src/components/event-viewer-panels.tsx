@@ -8,7 +8,7 @@ import { MobileDualEmbedStage } from "@/components/mobile-dual-embed-stage";
 import { MobileViewerTabs } from "@/components/mobile-viewer-tabs";
 import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
 import { ViewerCanvasLayout } from "@/components/viewer-canvas-layout";
-import { useLgUp } from "@/hooks/use-lg-up";
+import { useMdUp } from "@/hooks/use-md-up";
 import type { ViewerCanvasLayoutV1 } from "@/lib/viewer-canvas-layout-geometry";
 
 function ToolEmbedFrame({ title, src }: { title: string; src: string }) {
@@ -57,7 +57,7 @@ type Props = {
 };
 
 /**
- * Viewer: floating canvas (lg+) with optional host-published default layout; below lg use tabs / dual mobile stage.
+ * Viewer: floating canvas (md+) with optional host-published default layout; mobile uses tabs + host default tab.
  * Local drag/resize sets a per-browser override until "Reset layout" (back to host default or built-in defaults).
  */
 export function EventViewerPanels({
@@ -84,8 +84,7 @@ export function EventViewerPanels({
   hasMobileChatTab = true,
   eventId,
 }: Props) {
-  /** Match stage shell: floating canvas only at lg+ so phones in landscape (& tablets) keep tabs/dual + inline chat. */
-  const desktopCanvas = useLgUp();
+  const mdUp = useMdUp();
   const showPrimary = !!(embedUrl && gameEmbed.show && primaryEmbedSrc);
   const showSecondary = !!(secondaryEmbedUrl && gameEmbed.show && secondaryEmbedSrc);
   const primaryInvalid = !!(embedUrl && gameEmbed.show && !primaryEmbedSrc);
@@ -139,7 +138,7 @@ export function EventViewerPanels({
 
       {showResizable && (
         <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-          {desktopCanvas ? (
+          {mdUp ? (
             <ViewerCanvasLayout
               storageKey={storageKey}
               videoLabel={broadcastLabel}
