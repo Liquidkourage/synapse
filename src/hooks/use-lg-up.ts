@@ -15,9 +15,9 @@ function getSnapshot() {
   return window.matchMedia(LG_QUERY).matches;
 }
 
-/** SSR / first client render: wide layout to reduce column flash on desktops. */
+/** SSR / hydration: prefer mobile layout until the real viewport is known (avoids broken canvas + missing chat below lg). */
 function getServerSnapshot() {
-  return true;
+  return false;
 }
 
 export function useLgUp(): boolean {
