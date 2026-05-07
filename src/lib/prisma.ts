@@ -1,4 +1,5 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { PrismaClient } from "@/generated/prisma";
 import { resolveDatabaseUrl } from "../../prisma/database-url";
 
@@ -6,12 +7,13 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function createPrisma() {
   const url = resolveDatabaseUrl();
-  if (!url.startsWith("file:")) {
+  if (!url.startsWith("postgres")) {
     throw new Error(
-      'DATABASE_URL must be a SQLite file URL (e.g. file:./prisma/dev.db). This PoC uses SQLite for local "no DB server" dev.',
+      "DATABASE_URL must be a PostgreSQL connection string (e.g. postgres://user:password@host:5432/db)"
     );
   }
-  const adapter = new PrismaBetterSqlite3({ url });
+  const pool = new Pool({ connectionString: url });
+  const adapter = new PrismaPg({ pool });
   return new PrismaClient({ adapter });
 }
 
