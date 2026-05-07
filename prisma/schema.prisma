@@ -1,5 +1,4 @@
-// Synapse — schema
-// Uses PostgreSQL. Set DATABASE_URL to a postgres:// connection string.
+// Synapse — PostgreSQL. Set DATABASE_URL (see prisma.config.ts).
 
 generator client {
   provider = "prisma-client-js"

@@ -1,10 +1,10 @@
-# Official Node image tracks latest 20.x / 22.x patch releases (Prisma 7 needs 20.19+, 22.12+, or 24+).
-# Nixpacks' Node 22 channel can resolve to 22.11, which fails Prisma's preinstall check.
-FROM node:20-bookworm-slim AS base
+# Node 22.x satisfies Prisma toolchain (e.g. @prisma/streams-local engines.node >=22).
+# Prisma 7 supports ^20.19.0 || ^22.12.0 || >=24.0.0 — avoid 20.x if optional deps warn on install.
+FROM node:22-bookworm-slim AS base
 
 WORKDIR /app
 
-# Native deps: better-sqlite3 (node-gyp), Prisma engines
+# Optional native deps (node-gyp): Prisma engines; `pg` is pure JS
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
