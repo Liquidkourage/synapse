@@ -23,6 +23,12 @@ COPY . .
 
 RUN chmod +x docker-entrypoint.sh
 
+# Next.js build evaluates server modules (e.g. `src/lib/prisma.ts`) and `resolveDatabaseUrl()` runs.
+# On Railway, service variables are only visible during `docker build` if declared as ARG — see:
+# https://docs.railway.com/deploy/dockerfiles#using-variables-at-build-time
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
+
 RUN npm run build
 
 ENV NODE_ENV=production
