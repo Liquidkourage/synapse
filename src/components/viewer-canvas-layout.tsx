@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   denormalizeV1ToPixelPanels,
   normalizePixelPanelsToV1,
+  remapPublishedPanelZs,
   VIEWER_CANVAS_MARGIN,
   type ViewerCanvasLayoutV1,
   type ViewerMobileTabId,
@@ -369,6 +370,7 @@ export function ViewerCanvasLayout({
   const [canvasPointerLock, setCanvasPointerLock] = useState(false);
   const [publishMobileTab, setPublishMobileTab] = useState<ViewerMobileTabId>("video");
   const [publishState, setPublishState] = useState<"idle" | "saving" | "ok" | "err">("idle");
+  const [publishErrorDetail, setPublishErrorDetail] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -491,9 +493,10 @@ export function ViewerCanvasLayout({
     const { width, height } = el.getBoundingClientRect();
     if (width < 80 || height < 80) return;
     setPublishState("saving");
+    setPublishErrorDetail(null);
     const v1: ViewerCanvasLayoutV1 = {
       version: 1,
-      panels: normalizePixelPanelsToV1(geoms, width, height),
+      panels: remapPublishedPanelZs(normalizePixelPanelsToV1(geoms, width, height)),
       mobile: { defaultTab: publishMobileTab },
     };
     try {
@@ -503,6 +506,14 @@ export function ViewerCanvasLayout({
         body: JSON.stringify(v1),
       });
       if (!res.ok) {
+        let detail: string | null = null;
+        try {
+          const j = (await res.json()) as { error?: string };
+          detail = typeof j.error === "string" ? j.error : null;
+        } catch {
+          /* */
+        }
+        setPublishErrorDetail(detail ?? `HTTP ${res.status}`);
         setPublishState("err");
         return;
       }
@@ -510,6 +521,7 @@ export function ViewerCanvasLayout({
       router.refresh();
       setTimeout(() => setPublishState("idle"), 2500);
     } catch {
+      setPublishErrorDetail("Network error");
       setPublishState("err");
     }
   }, [eventId, canPublishViewerLayout, geoms, publishMobileTab, router]);
@@ -728,7 +740,12 @@ export function ViewerCanvasLayout({
               {publishState === "saving" ? "Saving…" : "Save layout for all viewers"}
             </button>
             {publishState === "ok" ? <span className="text-emerald-400">Saved.</span> : null}
-            {publishState === "err" ? <span className="text-red-400">Save failed.</span> : null}
+            {publishState === "err" ? (
+              <span className="text-red-400">
+                Save failed
+                {publishErrorDetail ? ` — ${publishErrorDetail}` : ""}.
+              </span>
+            ) : null}
             <p className="w-full text-[11px] text-zinc-500">
               Publishes normalized window positions (desktop floating canvas). Mobile uses the tab you pick here, not raw
               multi-window geometry.
@@ -745,6 +762,7 @@ export function ViewerCanvasLayout({
       publishMobileTab,
       publishLayout,
       publishState,
+      publishErrorDetail,
       hasVideo,
       hasPrimary,
       hasSecondary,

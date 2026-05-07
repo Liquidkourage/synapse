@@ -54,6 +54,24 @@ export function normalizePixelPanelsToV1(
   return out;
 }
 
+/**
+ * Collapse arbitrary z-values to 1..n while preserving stacking order.
+ * Local UI bumps z on every interaction; the publish API caps z — remap before save.
+ */
+export function remapPublishedPanelZs(
+  panels: Partial<Record<ViewerCanvasPanelId, NormalizedPanelGeom>>,
+): Partial<Record<ViewerCanvasPanelId, NormalizedPanelGeom>> {
+  const ids = (["video", "primary", "secondary"] as const).filter((id) => panels[id]);
+  if (ids.length === 0) return { ...panels };
+  const sorted = [...ids].sort((a, b) => panels[a]!.z - panels[b]!.z);
+  const out: Partial<Record<ViewerCanvasPanelId, NormalizedPanelGeom>> = { ...panels };
+  sorted.forEach((id, i) => {
+    const g = out[id];
+    if (g) out[id] = { ...g, z: i + 1 };
+  });
+  return out;
+}
+
 function clampPixelGeom(
   g: { x: number; y: number; width: number; height: number; z: number },
   canvasW: number,
