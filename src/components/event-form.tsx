@@ -1,6 +1,7 @@
 import { createEvent, updateEvent } from "@/actions/events";
 import type { Event } from "@/generated/prisma";
 import { CoverImageInput } from "@/components/cover-image-input";
+import { EventScheduleFields } from "@/components/event-schedule-fields";
 import { SynapseVideoRoomButton } from "@/components/synapse-video-room-button";
 import { formatDurationHhMm, formatStartForDatetimeLocal } from "@/lib/event-schedule";
 
@@ -145,51 +146,11 @@ function FormFields({
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
-      <div>
-        <label className="block text-sm text-zinc-400">Timezone (IANA)</label>
-        <p className="mt-1 text-xs text-zinc-600">
-          Start time is interpreted in this zone — e.g.{" "}
-          <code className="text-zinc-500">America/New_York</code>,{" "}
-          <code className="text-zinc-500">America/Chicago</code>,{" "}
-          <code className="text-zinc-500">America/Los_Angeles</code>.
-        </p>
-        <input
-          name="timezone"
-          required
-          defaultValue={d.timezone ?? "America/New_York"}
-          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm text-zinc-400">Start (in timezone above)</label>
-          <input
-            type="datetime-local"
-            name="startAt"
-            required
-            defaultValue={d.startAt}
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-sm text-zinc-400">Duration (hours:minutes)</label>
-          <p className="mt-1 text-xs text-zinc-600">
-            Length of the event, e.g. <code className="text-zinc-500">2:30</code> = 2h 30m,{" "}
-            <code className="text-zinc-500">01:15</code> = 1h 15m.
-          </p>
-          <input
-            name="duration"
-            type="text"
-            required
-            inputMode="numeric"
-            placeholder="2:00"
-            defaultValue={d.duration ?? "02:00"}
-            pattern="[0-9]{1,3}:[0-9]{2}"
-            title="Hours and minutes, e.g. 2:30"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-          />
-        </div>
-      </div>
+      <EventScheduleFields
+        defaultStartAt={d.startAt}
+        defaultDuration={d.duration ?? "02:00"}
+        defaultTimezone={d.timezone ?? "America/New_York"}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm text-zinc-400">Stored status</label>
