@@ -7,6 +7,27 @@ import type { ChatMessageClient } from "@/lib/chat-message-dto";
 
 type Msg = ChatMessageClient;
 
+const CHAT_GUEST_NICK_KEY = "synapse-chat-guest-nickname";
+
+function persistGuestNickname(name: string) {
+  try {
+    const t = name.trim();
+    if (t) localStorage.setItem(CHAT_GUEST_NICK_KEY, t);
+    else localStorage.removeItem(CHAT_GUEST_NICK_KEY);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function loadGuestNickname(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(CHAT_GUEST_NICK_KEY)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function Submit({ compact }: { compact?: boolean }) {
   const { pending } = useFormStatus();
   return (
@@ -37,7 +58,12 @@ export function EventChat({
   layout?: "default" | "sideRail" | "embedded" | "stageRail";
 }) {
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
+  const [guestNick, setGuestNick] = useState("");
   const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    setGuestNick(loadGuestNickname());
+  }, []);
 
   useEffect(() => {
     setMessages(initialMessages);
@@ -123,7 +149,9 @@ export function EventChat({
       <form
         className={`flex flex-col gap-2 ${stageRail ? "mt-2 shrink-0 border-t border-zinc-800/80 pt-2" : railish || embedded ? "sm:flex-row mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4 sm:flex-row"}`}
         action={async (fd) => {
+          const nick = typeof fd.get("guestName") === "string" ? fd.get("guestName") : "";
           await postEventMessage(fd);
+          if (typeof nick === "string") persistGuestNickname(nick);
           const res = await fetch(`/api/events/${eventId}/chat`, { cache: "no-store" });
           if (res.ok) {
             const data = (await res.json()) as { messages: ChatMessageClient[] };
@@ -135,7 +163,12 @@ export function EventChat({
         <input type="hidden" name="eventSlug" value={eventSlug} />
         <input
           name="guestName"
+          value={guestNick}
+          onChange={(e) => setGuestNick(e.target.value)}
+          onBlur={() => persistGuestNickname(guestNick)}
           placeholder="Guest name"
+          autoComplete="nickname"
+          maxLength={80}
           className={
             stageRail
               ? "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600"
