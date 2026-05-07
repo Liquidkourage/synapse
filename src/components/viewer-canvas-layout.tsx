@@ -183,23 +183,9 @@ function mergeHostPixelsWithDefaults(
   return clampStored(out, w, h, hasVideo, hasPrimary, hasSecondary);
 }
 
-function PanelToolbar({
-  label,
-  zoom,
-  onZoom,
-  onToolbarClick,
-}: {
-  label: string;
-  zoom: number;
-  onZoom: (z: number) => void;
-  /** Fires after mouse/touch release (not during pointerdown) so it does not fight react-rnd drag. */
-  onToolbarClick?: () => void;
-}) {
+function PanelToolbar({ label, zoom, onZoom }: { label: string; zoom: number; onZoom: (z: number) => void }) {
   return (
-    <div
-      className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 bg-zinc-950/90 px-2 py-1.5"
-      onClick={onToolbarClick}
-    >
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 bg-zinc-950/90 px-2 py-1.5">
       <span className="synapse-panel-drag flex min-h-[2rem] min-w-0 flex-1 cursor-grab touch-none select-none items-center text-xs font-medium text-zinc-400 active:cursor-grabbing">
         {label}
       </span>
@@ -675,18 +661,23 @@ export function ViewerCanvasLayout({
         height={g.height}
         z={g.z}
         onDragStart={() => {
+          bringToFront(id);
           setCanvasPointerLock(true);
         }}
         onDrag={onDrag(id)}
         onDragStop={onDragStop(id)}
         onResizeStart={() => {
+          bringToFront(id);
           setCanvasPointerLock(true);
         }}
         onResize={onResize(id)}
         onResizeStop={onResizeStop(id)}
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <PanelToolbar label={label} zoom={zm} onZoom={onZoom} onToolbarClick={() => bringToFront(id)} />
+        <div
+          className="flex h-full min-h-0 flex-col"
+          onPointerDownCapture={() => bringToFront(id)}
+        >
+          <PanelToolbar label={label} zoom={zm} onZoom={onZoom} />
           <ZoomFrame zoom={zm} blockPointerEvents={canvasPointerLock}>
             {content}
           </ZoomFrame>
@@ -703,7 +694,9 @@ export function ViewerCanvasLayout({
     () => (
       <div className={`shrink-0 space-y-2 text-xs text-zinc-600 ${compact ? "max-md:px-4 md:px-0" : ""}`}>
         <p>
-          Click the toolbar (title or zoom) to raise a window. Drag the title to move; drag edges or corners to resize.{" "}
+          Click the window (toolbar, edges, or scroll area outside an embed) to bring it forward; drag the title to move;
+          drag edges or corners to resize. Clicks inside cross-origin games cannot bubble to the shell — use the toolbar
+          or panel margins.{" "}
           <button type="button" onClick={resetLayout} className="text-violet-400 hover:underline">
             Reset layout
           </button>{" "}
