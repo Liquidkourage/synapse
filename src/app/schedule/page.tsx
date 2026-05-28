@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
+import { eventPublicPath } from "@/lib/event-page-path";
 
 function recurrenceLabel(ruleJson: string) {
   try {
@@ -70,7 +71,7 @@ export default async function SchedulePage() {
                 className="flex flex-col gap-1 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
-                  <Link href={`/events/${e.slug}`} className="text-lg font-medium text-white hover:text-violet-400">
+                  <Link href={eventPublicPath(e)} className="text-lg font-medium text-white hover:text-violet-400">
                     {e.title}
                   </Link>
                   <p className="text-sm text-zinc-500">

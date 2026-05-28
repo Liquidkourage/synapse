@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LocalDateTime } from "@/components/local-datetime";
+import { eventPublicPath } from "@/lib/event-page-path";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
 import type { PodcastEpisodeRow } from "@/lib/podcast-queries";
 
@@ -15,7 +16,7 @@ export function PodcastEpisodeCard({
 
   return (
     <Link
-      href={`/events/${episode.slug}`}
+      href={eventPublicPath(episode)}
       className={`group flex flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 transition hover:border-violet-500/35 ${
         compact ? "" : "h-full"
       }`}

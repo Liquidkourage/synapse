@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PodcastEmbedPlayer } from "@/components/podcast-embed";
 import { PodcastEpisodeCard } from "@/components/podcast-episode-card";
 import { PodcastShowCard } from "@/components/podcast-show-card";
+import { eventPublicPath } from "@/lib/event-page-path";
 import { resolvePodcastEmbed } from "@/lib/podcast-embed";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
 import {
@@ -40,10 +41,10 @@ export default async function PodcastsPage() {
               <p className="text-zinc-400">{featured.shortDescription}</p>
               <p className="text-sm text-zinc-500">{podcastPlatformLabel(featured.podcastEmbedUrl)}</p>
               <Link
-                href={`/events/${featured.slug}`}
+                href={eventPublicPath(featured)}
                 className="inline-flex rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
               >
-                Event details
+                Listen
               </Link>
             </div>
             {featuredEmbed ? (

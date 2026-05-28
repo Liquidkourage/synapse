@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { isHostOrAbove } from "@/lib/rbac";
+import { eventPublicPath } from "@/lib/event-page-path";
 
 export default async function HostEventsPage() {
   const session = await auth();
@@ -41,7 +42,7 @@ export default async function HostEventsPage() {
             className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3"
           >
             <div>
-              <Link href={`/events/${e.slug}`} className="font-medium text-white hover:text-violet-300">
+              <Link href={eventPublicPath(e)} className="font-medium text-white hover:text-violet-300">
                 {e.title}
               </Link>
               <p className="text-xs text-zinc-500">{e.slug}</p>

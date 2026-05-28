@@ -17,6 +17,7 @@ import {
   parseEventStartInTimeZone,
 } from "@/lib/event-schedule";
 import type { EventKind } from "@/generated/prisma";
+import { revalidateEventPublicPaths } from "@/lib/event-page-path";
 
 const emptyToUndef = (v: unknown) => {
   if (v === undefined || v === null) return undefined;
@@ -162,6 +163,7 @@ export async function createEvent(formData: FormData) {
   }
 
   revalidatePath("/host/events");
+  revalidateEventPublicPaths(revalidatePath, created);
   revalidatePath("/schedule");
   revalidatePath("/live");
   revalidatePath("/");
@@ -246,7 +248,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   });
 
   revalidatePath("/host/events");
-  revalidatePath(`/events/${existing.slug}`);
+  revalidateEventPublicPaths(revalidatePath, existing);
   revalidatePath("/schedule");
   revalidatePath("/live");
   revalidatePath("/");
@@ -332,7 +334,7 @@ export async function deleteEvent(eventId: string): Promise<{ ok: true } | { ok:
   });
 
   revalidatePath("/host/events");
-  revalidatePath(`/events/${slug}`);
+  revalidateEventPublicPaths(revalidatePath, existing);
   revalidatePath("/schedule");
   revalidatePath("/live");
   revalidatePath("/");

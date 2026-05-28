@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { eventPublicPath } from "@/lib/event-page-path";
 import { searchEventsAndArchive } from "@/lib/queries";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
@@ -29,7 +30,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <ul className="space-y-2">
               {events.map((e) => (
                 <li key={e.id}>
-                  <Link href={`/events/${e.slug}`} className="text-violet-400 hover:underline">
+                  <Link href={eventPublicPath(e)} className="text-violet-400 hover:underline">
                     {e.title}
                   </Link>
                   <p className="text-sm text-zinc-500">{e.shortDescription}</p>

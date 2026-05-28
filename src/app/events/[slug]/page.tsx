@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
@@ -16,9 +16,7 @@ import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
 import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
-import { eventKindLabel, isPodcastEvent } from "@/lib/event-kind";
-import { PodcastEmbedPlayer } from "@/components/podcast-embed";
-import { podcastEmbedRejectedReason, resolvePodcastEmbed } from "@/lib/podcast-embed";
+import { isPodcastEvent } from "@/lib/event-kind";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -27,6 +25,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
     include: { host: true, producer: true, recurrenceSeries: true },
   });
   if (!event) notFound();
+  if (isPodcastEvent(event)) redirect(`/podcasts/e/${slug}`);
 
   const session = await auth();
   const eff = getEffectiveEventStatus(event);
@@ -102,10 +101,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       (session.user.role === "PRODUCER" && event.producerId === session.user.id) ||
       (session.user.role === "HOST" && session.user.id === event.hostId));
 
-  const podcastEmbed = event.podcastEmbedUrl ? resolvePodcastEmbed(event.podcastEmbedUrl) : null;
-  const podcastEmbedError =
-    event.podcastEmbedUrl && !podcastEmbed ? podcastEmbedRejectedReason(event.podcastEmbedUrl) : null;
-
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       {event.coverImageUrl && (
@@ -123,12 +118,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         left={
           <div className="flex flex-col gap-4 text-sm">
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              {isPodcastEvent(event) && (
-                <span className="rounded-full bg-violet-600/25 px-2 py-0.5 font-medium text-violet-200">
-                  {eventKindLabel("PODCAST")}
-                </span>
-              )}
-              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-zinc-300">{statusLabel(eff)}</span>
+                <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-zinc-300">{statusLabel(eff)}</span>
               {event.recurrenceNote && (
                 <span className="rounded-full bg-violet-600/20 px-2 py-0.5 text-violet-200">
                   {event.recurrenceNote}
@@ -159,34 +149,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               <section>
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">About</h2>
                 <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-300">{event.longDescription}</p>
-              </section>
-            ) : null}
-
-            {podcastEmbed ? (
-              <section className="space-y-2">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Podcast</h2>
-                <PodcastEmbedPlayer embed={podcastEmbed} title={`Podcast: ${event.title}`} />
-                <a
-                  href={event.podcastEmbedUrl!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block text-xs text-violet-400 hover:underline"
-                >
-                  Open in app / new tab
-                </a>
-              </section>
-            ) : podcastEmbedError ? (
-              <section className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200/90">
-                <h2 className="font-medium text-amber-100/95">Podcast link</h2>
-                <p className="mt-1">{podcastEmbedError}</p>
-                <a
-                  href={event.podcastEmbedUrl!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-block text-violet-400 hover:underline"
-                >
-                  Open link
-                </a>
               </section>
             ) : null}
 

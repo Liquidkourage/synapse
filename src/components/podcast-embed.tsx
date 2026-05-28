@@ -2,14 +2,35 @@ import type { PodcastEmbed } from "@/lib/podcast-embed";
 
 const IFRAME_ALLOW = "autoplay; encrypted-media; fullscreen; picture-in-picture";
 
-export function PodcastEmbedPlayer({ embed, title }: { embed: PodcastEmbed; title: string }) {
+export function PodcastEmbedPlayer({
+  embed,
+  title,
+  prominent = false,
+}: {
+  embed: PodcastEmbed;
+  title: string;
+  /** Taller player for dedicated podcast episode pages. */
+  prominent?: boolean;
+}) {
   if (embed.kind === "audio") {
     return (
-      <audio controls preload="metadata" className="w-full" src={embed.src} title={title} />
+      <audio
+        controls
+        preload="metadata"
+        className={prominent ? "w-full rounded-xl" : "w-full"}
+        src={embed.src}
+        title={title}
+      />
     );
   }
 
-  const heightClass = embed.aspect === "video" ? "aspect-video min-h-[200px]" : "h-[152px] min-h-[152px]";
+  const heightClass = prominent
+    ? embed.aspect === "video"
+      ? "aspect-video min-h-[280px] sm:min-h-[360px]"
+      : "h-[232px] min-h-[232px] sm:h-[352px] sm:min-h-[352px]"
+    : embed.aspect === "video"
+      ? "aspect-video min-h-[200px]"
+      : "h-[152px] min-h-[152px]";
 
   return (
     <div className={`w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 ${heightClass}`}>

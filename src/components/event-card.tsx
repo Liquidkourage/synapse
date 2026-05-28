@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Event, User } from "@/generated/prisma";
 import { eventKindLabel, isPodcastEvent } from "@/lib/event-kind";
+import { eventPublicPath } from "@/lib/event-page-path";
 import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
 
@@ -13,7 +14,7 @@ export function EventCard({ event }: Props) {
   return (
     <article className="group rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 transition hover:border-violet-500/40">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <Link href={`/events/${event.slug}`} className="text-lg font-medium text-white group-hover:text-violet-200">
+        <Link href={eventPublicPath(event)} className="text-lg font-medium text-white group-hover:text-violet-200">
           {event.title}
         </Link>
         <div className="flex flex-wrap gap-1.5">

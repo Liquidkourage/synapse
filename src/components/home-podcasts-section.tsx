@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PodcastEmbedPlayer } from "@/components/podcast-embed";
 import { PodcastEpisodeCard } from "@/components/podcast-episode-card";
 import { PodcastShowCard } from "@/components/podcast-show-card";
+import { eventPublicPath } from "@/lib/event-page-path";
 import { resolvePodcastEmbed } from "@/lib/podcast-embed";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
 import type { PodcastEpisodeRow, PodcastShowRow } from "@/lib/podcast-queries";
@@ -49,7 +50,7 @@ export function HomePodcastsSection({
               {featured.host.name?.trim() || featured.host.email}
             </p>
             <Link
-              href={`/events/${featured.slug}`}
+              href={eventPublicPath(featured)}
               className="inline-flex rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/15"
             >
               Episode page
