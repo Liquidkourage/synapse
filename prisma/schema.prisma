@@ -135,6 +135,10 @@ model Event {
   replayUrl      String?
   /// Public podcast: Spotify / Apple / YouTube episode or show URL (or official embed URL). Rendered on the event page.
   podcastEmbedUrl String?
+  /// RSS feed URL when imported as part of a show (groups episodes in host admin).
+  podcastFeedUrl    String?
+  /// Channel title from the feed at import time (e.g. "Verboten").
+  podcastShowTitle  String?
   resultsSummary String?
 
   recurrenceSeriesId String?

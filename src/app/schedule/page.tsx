@@ -19,6 +19,7 @@ export default async function SchedulePage() {
     where: {
       endAt: { gte: now },
       status: { notIn: ["DRAFT", "CANCELLED"] },
+      eventKind: "LIVE_INTERACTIVE",
     },
     include: { host: true, producer: true, recurrenceSeries: true },
     orderBy: { startAt: "asc" },

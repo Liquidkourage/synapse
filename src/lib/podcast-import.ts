@@ -154,6 +154,8 @@ export async function importPodcastShow(options: {
           producerId: options.producerId,
           coverImageUrl: ep.coverImageUrl ?? defaultCover,
           podcastEmbedUrl: ep.podcastEmbedUrl,
+          podcastFeedUrl: feedUrl,
+          podcastShowTitle: feed.title || options.showTitleFallback,
         },
       });
       created += 1;
