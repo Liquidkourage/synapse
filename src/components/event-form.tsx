@@ -1,8 +1,10 @@
 import { createEvent, updateEvent } from "@/actions/events";
 import type { Event } from "@/generated/prisma";
 import { CoverImageInput } from "@/components/cover-image-input";
+import { EventFormKindLayout } from "@/components/event-form-kind-layout";
 import { EventScheduleFields } from "@/components/event-schedule-fields";
 import { SynapseVideoRoomButton } from "@/components/synapse-video-room-button";
+import { effectiveEventKind } from "@/lib/event-kind";
 import { formatDurationHhMm, formatStartForDatetimeLocal } from "@/lib/event-schedule";
 
 export function EventCreateForm({
@@ -72,6 +74,7 @@ export function EventEditForm({
           bannerImageUrl: event.bannerImageUrl ?? "",
           replayUrl: event.replayUrl ?? "",
           podcastEmbedUrl: event.podcastEmbedUrl ?? "",
+          eventKind: effectiveEventKind(event),
           resultsSummary: event.resultsSummary ?? "",
           recurrenceNote: event.recurrenceNote ?? "",
           twitchChannelLogin: event.twitchChannelLogin ?? "",
@@ -102,7 +105,9 @@ function FormFields({
   defaults?: Record<string, string>;
 }) {
   const d = defaults ?? {};
-  return (
+  const defaultKind = (d.eventKind === "PODCAST" ? "PODCAST" : "LIVE_INTERACTIVE") as "LIVE_INTERACTIVE" | "PODCAST";
+
+  const shared = (
     <>
       {hostOptions && hostOptions.length > 0 && (
         <div>
@@ -192,6 +197,38 @@ function FormFields({
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
+      <CoverImageInput defaultValue={d.coverImageUrl} />
+      <div>
+        <label className="block text-sm text-zinc-400">Banner image URL</label>
+        <input
+          name="bannerImageUrl"
+          defaultValue={d.bannerImageUrl}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-zinc-400">Instructions</label>
+        <textarea
+          name="instructions"
+          rows={3}
+          defaultValue={d.instructions}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-zinc-400">Results / summary</label>
+        <textarea
+          name="resultsSummary"
+          rows={3}
+          defaultValue={d.resultsSummary}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+    </>
+  );
+
+  const live = (
+    <>
       <div>
         <label className="block text-sm text-zinc-400">Platform name</label>
         <input
@@ -420,40 +457,6 @@ function FormFields({
         />
       </div>
       <div>
-        <label className="block text-sm text-zinc-400">Instructions</label>
-        <textarea
-          name="instructions"
-          rows={3}
-          defaultValue={d.instructions}
-          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
-      </div>
-      <CoverImageInput defaultValue={d.coverImageUrl} />
-      <div>
-        <label className="block text-sm text-zinc-400">Banner image URL</label>
-        <input
-          name="bannerImageUrl"
-          defaultValue={d.bannerImageUrl}
-          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
-      </div>
-      <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
-        <label className="block text-sm font-medium text-violet-200/90">Public podcast (embedded player)</label>
-        <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-          Paste a public episode or show link from{" "}
-          <span className="text-zinc-400">Spotify</span>, <span className="text-zinc-400">Apple Podcasts</span>, or{" "}
-          <span className="text-zinc-400">YouTube</span>. Synapse embeds the official player on the event page. You can
-          also use a direct <code className="rounded bg-zinc-900 px-1 text-zinc-400">https://…</code> link to an audio
-          file (.mp3, .m4a).
-        </p>
-        <input
-          name="podcastEmbedUrl"
-          placeholder="https://open.spotify.com/episode/…"
-          defaultValue={d.podcastEmbedUrl}
-          className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
-      </div>
-      <div>
         <label className="block text-sm text-zinc-400">Replay URL (post-event)</label>
         <input
           name="replayUrl"
@@ -461,15 +464,36 @@ function FormFields({
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
+    </>
+  );
+
+  const podcast = (
+    <>
+      <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
+        <label className="block text-sm font-medium text-violet-200/90">Public podcast URL (required)</label>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+          Paste a public episode or show link from Spotify, Apple Podcasts, or YouTube. Listed on the{" "}
+          <span className="text-violet-300/90">homepage podcasts</span> section and{" "}
+          <span className="text-violet-300/90">/podcasts</span>. Direct .mp3 / .m4a links work too.
+        </p>
+        <input
+          name="podcastEmbedUrl"
+          required
+          placeholder="https://open.spotify.com/episode/…"
+          defaultValue={d.podcastEmbedUrl}
+          className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
       <div>
-        <label className="block text-sm text-zinc-400">Results / summary</label>
-        <textarea
-          name="resultsSummary"
-          rows={3}
-          defaultValue={d.resultsSummary}
+        <label className="block text-sm text-zinc-400">Replay URL (optional)</label>
+        <input
+          name="replayUrl"
+          defaultValue={d.replayUrl}
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
     </>
   );
+
+  return <EventFormKindLayout defaultKind={defaultKind} shared={shared} live={live} podcast={podcast} />;
 }

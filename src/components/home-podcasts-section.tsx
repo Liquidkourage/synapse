@@ -16,8 +16,6 @@ export function HomePodcastsSection({
   popularShows: PodcastShowRow[];
 }) {
   const hasContent = featured || newestEpisodes.length > 0 || popularShows.length > 0;
-  if (!hasContent) return null;
-
   const featuredEmbed = featured?.podcastEmbedUrl ? resolvePodcastEmbed(featured.podcastEmbedUrl) : null;
   const newest = newestEpisodes.filter((e) => e.id !== featured?.id).slice(0, 4);
   const shows = popularShows.slice(0, 4);
@@ -29,7 +27,7 @@ export function HomePodcastsSection({
           <p className="text-sm font-medium uppercase tracking-widest text-violet-300/80">Listen</p>
           <h2 className="mt-1 text-2xl font-semibold text-white">Podcasts</h2>
           <p className="mt-1 max-w-xl text-sm text-zinc-400">
-            Episodes from live events — embedded players on each show page.
+            On-demand episodes from hosts — pick &quot;Podcast episode&quot; when creating an event.
           </p>
         </div>
         <Link
@@ -87,6 +85,13 @@ export function HomePodcastsSection({
             ))}
           </div>
         </div>
+      ) : null}
+
+      {!hasContent ? (
+        <p className="rounded-2xl border border-dashed border-violet-500/30 bg-violet-950/10 p-8 text-center text-sm text-zinc-500">
+          No podcast episodes yet. Hosts: create an event and choose{" "}
+          <span className="text-violet-300/90">Podcast episode</span> with a Spotify, Apple, or YouTube link.
+        </p>
       ) : null}
     </section>
   );

@@ -9,7 +9,9 @@ export default async function AdminFeaturedPage() {
     orderBy: { startAt: "desc" },
     take: 80,
   });
-  const podcastEvents = events.filter((e) => e.podcastEmbedUrl?.trim());
+  const podcastEvents = events.filter(
+    (e) => e.eventKind === "PODCAST" || !!e.podcastEmbedUrl?.trim(),
+  );
 
   return (
     <div className="space-y-10">

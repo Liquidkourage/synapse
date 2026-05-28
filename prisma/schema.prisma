@@ -25,6 +25,11 @@ enum EventStatus {
   CANCELLED
 }
 
+enum EventKind {
+  LIVE_INTERACTIVE
+  PODCAST
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -89,6 +94,9 @@ model Event {
   endAt            DateTime
   /// IANA zone: start datetime-local is interpreted as wall time in this zone; also used for edit form + display copy.
   timezone         String   @default("America/New_York")
+
+  /// Live game / interactive show vs on-demand podcast episode.
+  eventKind      EventKind @default(LIVE_INTERACTIVE)
 
   /// Persisted workflow state
   status         EventStatus

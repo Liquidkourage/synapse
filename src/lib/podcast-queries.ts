@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/queries";
-import type { Event, EventStatus, User } from "@/generated/prisma";
+import type { Event, EventStatus, Prisma, User } from "@/generated/prisma";
 
 const PODCAST_EXCLUDED_STATUSES: EventStatus[] = ["DRAFT", "CANCELLED"];
 
-const podcastEventWhere = {
-  podcastEmbedUrl: { not: null },
+/** Podcast-type events and legacy rows that only set podcastEmbedUrl. */
+export const podcastEventWhere: Prisma.EventWhereInput = {
   status: { notIn: PODCAST_EXCLUDED_STATUSES },
+  OR: [{ eventKind: "PODCAST" }, { podcastEmbedUrl: { not: null } }],
 };
 
 export type PodcastEpisodeRow = Event & {
@@ -43,8 +44,7 @@ export async function getFeaturedPodcastEpisode(): Promise<PodcastEpisodeRow | n
   const ev = await prisma.event.findFirst({
     where: {
       id: settings.featuredPodcastEventId,
-      podcastEmbedUrl: { not: null },
-      status: { notIn: PODCAST_EXCLUDED_STATUSES },
+      ...podcastEventWhere,
     },
     include: {
       host: true,

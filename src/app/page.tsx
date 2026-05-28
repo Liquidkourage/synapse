@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getArchiveEntries, getPublicLiveEvent, getSiteSettings, getUpcomingEvents } from "@/lib/queries";
+import { getArchiveEntries, getPublicLiveEvent, getSiteSettings, getUpcomingLiveEvents } from "@/lib/queries";
 import { EventCard } from "@/components/event-card";
 import { HomePodcastsSection } from "@/components/home-podcasts-section";
 import { LocalDateTime } from "@/components/local-datetime";
@@ -13,7 +13,7 @@ import {
 export default async function HomePage() {
   const [live, upcoming, archive, settings, featuredPodcast, podcastEpisodes, podcastShows] = await Promise.all([
     getPublicLiveEvent(),
-    getUpcomingEvents(6),
+    getUpcomingLiveEvents(6),
     getArchiveEntries(6),
     getSiteSettings(),
     getFeaturedPodcastEpisode(),
@@ -46,9 +46,21 @@ export default async function HomePage() {
             >
               Full schedule
             </Link>
+            <Link
+              href="/podcasts"
+              className="rounded-full border border-violet-500/40 px-5 py-2.5 text-sm font-medium text-violet-200 hover:border-violet-400"
+            >
+              Podcasts
+            </Link>
           </div>
         </div>
       </section>
+
+      <HomePodcastsSection
+        featured={featuredPodcast}
+        newestEpisodes={podcastEpisodes}
+        popularShows={podcastShows}
+      />
 
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">
@@ -103,12 +115,6 @@ export default async function HomePage() {
           <p className="text-zinc-500">No upcoming events published yet. Producers are probably napping.</p>
         )}
       </section>
-
-      <HomePodcastsSection
-        featured={featuredPodcast}
-        newestEpisodes={podcastEpisodes}
-        popularShows={podcastShows}
-      />
 
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">

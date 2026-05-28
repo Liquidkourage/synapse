@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Event, User } from "@/generated/prisma";
+import { eventKindLabel, isPodcastEvent } from "@/lib/event-kind";
 import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
 
@@ -15,7 +16,14 @@ export function EventCard({ event }: Props) {
         <Link href={`/events/${event.slug}`} className="text-lg font-medium text-white group-hover:text-violet-200">
           {event.title}
         </Link>
-        <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">{statusLabel(eff)}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {isPodcastEvent(event) && (
+            <span className="rounded-full bg-violet-600/25 px-2 py-0.5 text-xs font-medium text-violet-200">
+              {eventKindLabel("PODCAST")}
+            </span>
+          )}
+          <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">{statusLabel(eff)}</span>
+        </div>
       </div>
       <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{event.shortDescription}</p>
       <p className="mt-3 text-xs text-zinc-500">

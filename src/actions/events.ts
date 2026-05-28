@@ -16,6 +16,7 @@ import {
   parseDurationHhMm,
   parseEventStartInTimeZone,
 } from "@/lib/event-schedule";
+import type { EventKind } from "@/generated/prisma";
 
 const emptyToUndef = (v: unknown) => {
   if (v === undefined || v === null) return undefined;
@@ -54,6 +55,16 @@ const eventFields = z.object({
   producerId: z.preprocess(emptyToUndef, z.string().optional()),
   twitchChannelLogin: z.preprocess(emptyToUndef, z.string().max(80).optional()),
   venmoHandle: z.preprocess(emptyToUndef, z.string().max(60).optional()),
+  eventKind: z.enum(["LIVE_INTERACTIVE", "PODCAST"]).optional(),
+}).superRefine((data, ctx) => {
+  const kind = data.eventKind ?? "LIVE_INTERACTIVE";
+  if (kind === "PODCAST" && !data.podcastEmbedUrl?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Podcast episodes need a public podcast URL (Spotify, Apple, YouTube, or audio file).",
+      path: ["podcastEmbedUrl"],
+    });
+  }
 });
 
 function parseForm(formData: FormData) {
@@ -70,6 +81,7 @@ export async function createEvent(formData: FormData) {
   if (!parsed.success) return;
 
   const broadcastStreamingMode = (parsed.data.videoRoomMode ?? "streaming") === "streaming";
+  const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
 
   const hostId =
     session.user.role === "ADMIN" || session.user.role === "PRODUCER"
@@ -126,11 +138,12 @@ export async function createEvent(formData: FormData) {
       recurrenceNote: parsed.data.recurrenceNote || null,
       twitchChannelLogin: parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
       venmoHandle: normalizeVenmoHandle(parsed.data.venmoHandle ?? null) ?? null,
+      eventKind,
     },
   });
 
   const { autoRoomOnCreate } = getSynapseVideoServerHints();
-  if (autoRoomOnCreate && !parsed.data.broadcastEmbedUrl?.trim()) {
+  if (eventKind === "LIVE_INTERACTIVE" && autoRoomOnCreate && !parsed.data.broadcastEmbedUrl?.trim()) {
     const r = await provisionDailyRoomForEvent(created.id);
     if (!r.ok) {
       console.error("[synapse-video] Auto-provision on create failed:", r.error);
@@ -161,6 +174,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   if (!parsed.success) return;
 
   const broadcastStreamingMode = (parsed.data.videoRoomMode ?? "streaming") === "streaming";
+  const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
 
   const tz = parsed.data.timezone.trim();
   let startAt: Date;
@@ -177,6 +191,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   await prisma.event.update({
     where: { id: eventId },
     data: {
+      eventKind,
       title: parsed.data.title,
       shortDescription: parsed.data.shortDescription,
       longDescription: parsed.data.longDescription || null,

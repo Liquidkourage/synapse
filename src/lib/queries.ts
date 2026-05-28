@@ -41,7 +41,7 @@ export async function getPublicLiveEvent(): Promise<
 
   for (const ev of candidates) {
     const effectiveStatus = getEffectiveEventStatus(ev, now);
-    if (effectiveStatus === "LIVE") {
+    if (effectiveStatus === "LIVE" && ev.eventKind !== "PODCAST" && !ev.podcastEmbedUrl) {
       return { ...ev, effectiveStatus };
     }
   }
@@ -87,6 +87,22 @@ export async function getUpcomingEvents(limit = 8) {
     where: {
       endAt: { gte: now },
       status: { notIn: ["DRAFT", "CANCELLED"] },
+    },
+    include: { host: true, producer: true },
+    orderBy: { startAt: "asc" },
+    take: limit,
+  });
+}
+
+/** Live interactive shows only — podcasts have their own homepage rail and /podcasts. */
+export async function getUpcomingLiveEvents(limit = 8) {
+  const now = new Date();
+  return prisma.event.findMany({
+    where: {
+      endAt: { gte: now },
+      status: { notIn: ["DRAFT", "CANCELLED"] },
+      eventKind: "LIVE_INTERACTIVE",
+      podcastEmbedUrl: null,
     },
     include: { host: true, producer: true },
     orderBy: { startAt: "asc" },

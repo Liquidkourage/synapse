@@ -16,6 +16,7 @@ import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
 import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
+import { eventKindLabel, isPodcastEvent } from "@/lib/event-kind";
 import { PodcastEmbedPlayer } from "@/components/podcast-embed";
 import { podcastEmbedRejectedReason, resolvePodcastEmbed } from "@/lib/podcast-embed";
 
@@ -122,6 +123,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         left={
           <div className="flex flex-col gap-4 text-sm">
             <div className="flex flex-wrap items-center gap-2 text-xs">
+              {isPodcastEvent(event) && (
+                <span className="rounded-full bg-violet-600/25 px-2 py-0.5 font-medium text-violet-200">
+                  {eventKindLabel("PODCAST")}
+                </span>
+              )}
               <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-zinc-300">{statusLabel(eff)}</span>
               {event.recurrenceNote && (
                 <span className="rounded-full bg-violet-600/20 px-2 py-0.5 text-violet-200">
