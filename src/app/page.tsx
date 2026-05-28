@@ -17,7 +17,7 @@ export default async function HomePage() {
     getArchiveEntries(6),
     getSiteSettings(),
     getFeaturedPodcastEpisode(),
-    getPodcastEpisodes(12),
+    getPodcastEpisodes({ limit: 12 }),
     getPopularPodcastShows(8),
   ]);
 

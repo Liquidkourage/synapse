@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PodcastEpisodeCard } from "@/components/podcast-episode-card";
-import { getPodcastEpisodes } from "@/lib/podcast-queries";
+import { getPodcastEpisodes, getPodcastEpisodeCount } from "@/lib/podcast-queries";
 import { prisma } from "@/lib/prisma";
 
 export default async function PodcastShowPage({ params }: { params: Promise<{ hostId: string }> }) {
@@ -10,8 +10,10 @@ export default async function PodcastShowPage({ params }: { params: Promise<{ ho
   const host = await prisma.user.findUnique({ where: { id: hostId } });
   if (!host) notFound();
 
-  const all = await getPodcastEpisodes(100);
-  const episodes = all.filter((e) => e.hostId === hostId);
+  const [episodes, episodeCount] = await Promise.all([
+    getPodcastEpisodes({ hostId }),
+    getPodcastEpisodeCount(hostId),
+  ]);
   if (episodes.length === 0) notFound();
 
   const title = host.name?.trim() || host.email.split("@")[0] || "Show";
@@ -34,7 +36,7 @@ export default async function PodcastShowPage({ params }: { params: Promise<{ ho
         <div>
           <h1 className="text-3xl font-semibold text-white">{title}</h1>
           <p className="mt-2 text-zinc-400">
-            {episodes.length} {episodes.length === 1 ? "episode" : "episodes"} on Synapse
+            {episodeCount} {episodeCount === 1 ? "episode" : "episodes"} on Synapse
           </p>
         </div>
       </header>

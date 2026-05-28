@@ -25,15 +25,28 @@ export type PodcastShowRow = {
   coverImageUrl: string | null;
 };
 
-export async function getPodcastEpisodes(limit = 24): Promise<PodcastEpisodeRow[]> {
+export async function getPodcastEpisodes(options?: { limit?: number; hostId?: string }): Promise<PodcastEpisodeRow[]> {
+  const { limit, hostId } = options ?? {};
   return prisma.event.findMany({
-    where: podcastEventWhere,
+    where: {
+      ...podcastEventWhere,
+      ...(hostId ? { hostId } : {}),
+    },
     include: {
       host: true,
       _count: { select: { attendees: true } },
     },
     orderBy: { startAt: "desc" },
-    take: limit,
+    ...(limit != null ? { take: limit } : {}),
+  });
+}
+
+export async function getPodcastEpisodeCount(hostId?: string): Promise<number> {
+  return prisma.event.count({
+    where: {
+      ...podcastEventWhere,
+      ...(hostId ? { hostId } : {}),
+    },
   });
 }
 

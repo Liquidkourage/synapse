@@ -31,12 +31,20 @@ export function HomePodcastsSection({
             On-demand episodes from hosts — pick &quot;Podcast episode&quot; when creating an event.
           </p>
         </div>
-        <Link
-          href="/podcasts"
-          className="rounded-full border border-violet-500/40 bg-violet-600/15 px-4 py-2 text-sm font-medium text-violet-200 hover:bg-violet-600/25"
-        >
-          All podcasts →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/podcasts/episodes"
+            className="rounded-full border border-violet-500/40 bg-violet-600/15 px-4 py-2 text-sm font-medium text-violet-200 hover:bg-violet-600/25"
+          >
+            All episodes →
+          </Link>
+          <Link
+            href="/podcasts"
+            className="rounded-full border border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-300 hover:border-zinc-500"
+          >
+            Podcasts hub
+          </Link>
+        </div>
       </div>
 
       {featured ? (

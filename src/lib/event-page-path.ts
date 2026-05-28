@@ -15,5 +15,6 @@ export function revalidateEventPublicPaths(
   if (isPodcastEvent(event)) {
     revalidatePath(`/podcasts/e/${event.slug}`);
     revalidatePath("/podcasts");
+    revalidatePath("/podcasts/episodes");
   }
 }

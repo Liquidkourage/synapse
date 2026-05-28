@@ -7,15 +7,17 @@ import { resolvePodcastEmbed } from "@/lib/podcast-embed";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
 import {
   getFeaturedPodcastEpisode,
+  getPodcastEpisodeCount,
   getPodcastEpisodes,
   getPopularPodcastShows,
 } from "@/lib/podcast-queries";
 
 export default async function PodcastsPage() {
-  const [featured, episodes, shows] = await Promise.all([
+  const [featured, episodes, shows, episodeTotal] = await Promise.all([
     getFeaturedPodcastEpisode(),
-    getPodcastEpisodes(48),
+    getPodcastEpisodes({ limit: 12 }),
     getPopularPodcastShows(24),
+    getPodcastEpisodeCount(),
   ]);
 
   const featuredEmbed = featured?.podcastEmbedUrl ? resolvePodcastEmbed(featured.podcastEmbedUrl) : null;
@@ -67,7 +69,31 @@ export default async function PodcastsPage() {
       ) : null}
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-white">All episodes</h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Latest episodes</h2>
+            {episodeTotal > 0 ? (
+              <p className="mt-1 text-sm text-zinc-500">
+                {episodeTotal} {episodeTotal === 1 ? "episode" : "episodes"} on Synapse
+              </p>
+            ) : null}
+          </div>
+          {episodeTotal > episodeList.length ? (
+            <Link
+              href="/podcasts/episodes"
+              className="rounded-full border border-violet-500/40 bg-violet-600/15 px-4 py-2 text-sm font-medium text-violet-200 hover:bg-violet-600/25"
+            >
+              All episodes →
+            </Link>
+          ) : episodeTotal > 0 ? (
+            <Link
+              href="/podcasts/episodes"
+              className="text-sm text-violet-400 hover:text-violet-300 hover:underline"
+            >
+              Full list
+            </Link>
+          ) : null}
+        </div>
         {episodeList.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {episodeList.map((ep) => (
