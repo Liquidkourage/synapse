@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/queries";
+import { backfillMissingPodcastShowTitles } from "@/lib/podcast-show-backfill";
 import { displayPodcastShowTitle } from "@/lib/podcast-show-meta";
 import type { Event, EventStatus, Prisma, User } from "@/generated/prisma";
 
@@ -30,6 +31,7 @@ export type PodcastShowRow = {
 export { podcastShowPath } from "@/lib/podcast-show-meta";
 
 export async function getPodcastEpisodes(options?: { limit?: number; hostId?: string }): Promise<PodcastEpisodeRow[]> {
+  await backfillMissingPodcastShowTitles();
   const { limit, hostId } = options ?? {};
   return prisma.event.findMany({
     where: {
@@ -73,6 +75,7 @@ export async function getFeaturedPodcastEpisode(): Promise<PodcastEpisodeRow | n
 
 /** Groups podcast events by host; ranks by total join count, then episode count. */
 export async function getPopularPodcastShows(limit = 8): Promise<PodcastShowRow[]> {
+  await backfillMissingPodcastShowTitles();
   const events = await prisma.event.findMany({
     where: podcastEventWhere,
     include: {

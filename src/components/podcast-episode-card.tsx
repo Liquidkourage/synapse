@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LocalDateTime } from "@/components/local-datetime";
 import { eventPublicPath } from "@/lib/event-page-path";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
+import { episodeShowLabel } from "@/lib/podcast-show-label";
 import type { PodcastEpisodeRow } from "@/lib/podcast-queries";
 
 export function PodcastEpisodeCard({
@@ -11,7 +12,7 @@ export function PodcastEpisodeCard({
   episode: PodcastEpisodeRow;
   compact?: boolean;
 }) {
-  const hostLabel = episode.host.name?.trim() || episode.host.email;
+  const showLabel = episodeShowLabel(episode);
   const platform = podcastPlatformLabel(episode.podcastEmbedUrl);
 
   return (
@@ -42,7 +43,7 @@ export function PodcastEpisodeCard({
       <div className="flex flex-1 flex-col p-4">
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
           <span className="rounded-full bg-violet-600/20 px-2 py-0.5 font-medium text-violet-200/90">{platform}</span>
-          <span>{hostLabel}</span>
+          <span>{showLabel}</span>
         </div>
         <h3 className={`mt-2 font-semibold text-white group-hover:text-violet-200 ${compact ? "text-sm" : ""}`}>
           {episode.title}

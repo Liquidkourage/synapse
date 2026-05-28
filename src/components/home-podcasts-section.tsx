@@ -5,6 +5,7 @@ import { PodcastShowCard } from "@/components/podcast-show-card";
 import { eventPublicPath } from "@/lib/event-page-path";
 import { resolvePodcastEmbed } from "@/lib/podcast-embed";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
+import { episodeShowLabel } from "@/lib/podcast-show-label";
 import type { PodcastEpisodeRow, PodcastShowRow } from "@/lib/podcast-queries";
 
 export function HomePodcastsSection({
@@ -54,8 +55,7 @@ export function HomePodcastsSection({
             <h3 className="text-xl font-semibold text-white">{featured.title}</h3>
             <p className="text-sm text-zinc-400">{featured.shortDescription}</p>
             <p className="text-xs text-zinc-500">
-              {podcastPlatformLabel(featured.podcastEmbedUrl)} ·{" "}
-              {featured.host.name?.trim() || featured.host.email}
+              {podcastPlatformLabel(featured.podcastEmbedUrl)} · {episodeShowLabel(featured)}
             </p>
             <Link
               href={eventPublicPath(featured)}
@@ -90,7 +90,7 @@ export function HomePodcastsSection({
           <h3 className="text-lg font-medium text-white">Popular shows</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             {shows.map((show) => (
-              <PodcastShowCard key={show.hostId} show={show} />
+              <PodcastShowCard key={`${show.hostId}-${show.feedUrl ?? "default"}`} show={show} />
             ))}
           </div>
         </div>
