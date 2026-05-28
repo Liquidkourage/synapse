@@ -10,14 +10,20 @@ import { podcastShowPath } from "@/lib/podcast-show-meta";
 export default async function HostEventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ podcastImported?: string; podcastSkipped?: string; show?: string }>;
+  searchParams: Promise<{
+    podcastImported?: string;
+    podcastSkipped?: string;
+    podcastDeleted?: string;
+    show?: string;
+  }>;
 }) {
   const session = await auth();
   if (!session?.user || !isHostOrAbove(session.user.role)) redirect("/login");
 
-  const { podcastImported, podcastSkipped, show } = await searchParams;
+  const { podcastImported, podcastSkipped, podcastDeleted, show } = await searchParams;
   const importedCount = podcastImported ? Number.parseInt(podcastImported, 10) : 0;
   const skippedCount = podcastSkipped ? Number.parseInt(podcastSkipped, 10) : 0;
+  const deletedCount = podcastDeleted ? Number.parseInt(podcastDeleted, 10) : 0;
 
   const hostFilter =
     session.user.role === "ADMIN" || session.user.role === "PRODUCER"
@@ -56,6 +62,11 @@ export default async function HostEventsPage({
         </div>
       </div>
 
+      {deletedCount > 0 ? (
+        <p className="rounded-xl border border-zinc-500/30 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
+          Removed {deletedCount} episode{deletedCount === 1 ? "" : "s"} from Synapse.
+        </p>
+      ) : null}
       {importedCount > 0 ? (
         <p className="rounded-xl border border-emerald-500/30 bg-emerald-950/25 px-4 py-3 text-sm text-emerald-200/90">
           Imported {importedCount} episode{importedCount === 1 ? "" : "s"}
@@ -149,7 +160,7 @@ export default async function HostEventsPage({
                     href={hostPodcastManageHref(group.feedUrl)}
                     className="font-medium text-violet-400 hover:underline"
                   >
-                    Manage episodes
+                    Manage
                   </Link>
                 </div>
               </li>

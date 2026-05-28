@@ -18,6 +18,7 @@ import {
   parseEventStartInTimeZone,
 } from "@/lib/event-schedule";
 import type { EventKind } from "@/generated/prisma";
+import { deleteEventsCleanup } from "@/lib/event-delete";
 import { revalidateEventPublicPaths } from "@/lib/event-page-path";
 import { importPodcastShow, PodcastImportError, shouldBulkImportPodcast } from "@/lib/podcast-import";
 import { looksLikeRssFeedUrl } from "@/lib/podcast-url";
@@ -399,40 +400,11 @@ export async function deleteEvent(eventId: string): Promise<{ ok: true } | { ok:
   const slug = existing.slug;
 
   await prisma.$transaction(async (tx) => {
-    await tx.siteSettings.updateMany({
-      where: { featuredLiveEventId: eventId },
-      data: { featuredLiveEventId: null },
-    });
-
-    const customBlocks = await tx.homepageBlock.findMany({
-      where: { blockType: "custom_events", payload: { not: null } },
-    });
-    for (const b of customBlocks) {
-      if (!b.payload) continue;
-      try {
-        const ids = JSON.parse(b.payload) as unknown;
-        if (!Array.isArray(ids)) continue;
-        const next = ids.filter((id) => id !== eventId);
-        if (next.length !== ids.length) {
-          await tx.homepageBlock.update({
-            where: { id: b.id },
-            data: { payload: next.length ? JSON.stringify(next) : null },
-          });
-        }
-      } catch {
-        /* ignore malformed payload */
-      }
-    }
-
-    await tx.archiveEntry.updateMany({
-      where: { eventId },
-      data: { eventId: null },
-    });
-
-    await tx.event.delete({ where: { id: eventId } });
+    await deleteEventsCleanup(tx, [eventId]);
   });
 
   revalidatePath("/host/events");
+  revalidatePath("/host/podcasts");
   revalidateEventPublicPaths(revalidatePath, existing);
   revalidatePath("/schedule");
   revalidatePath("/live");
