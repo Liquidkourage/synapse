@@ -36,6 +36,19 @@ export async function adminSetFeaturedLive(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function adminSetFeaturedPodcast(formData: FormData) {
+  await requireAdmin();
+  const eventId = (formData.get("eventId") as string) || "";
+  await prisma.siteSettings.upsert({
+    where: { id: "default" },
+    create: { id: "default", featuredPodcastEventId: eventId || null },
+    update: { featuredPodcastEventId: eventId || null },
+  });
+  revalidatePath("/");
+  revalidatePath("/podcasts");
+  revalidatePath("/admin/featured");
+}
+
 const settingsSchema = z.object({
   siteName: z.string().min(1).max(80),
   tagline: z.string().max(200).optional(),

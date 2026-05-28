@@ -37,6 +37,9 @@ export function SiteChrome({ session, children }: { session: Session | null; chi
             <Link className="text-zinc-400 hover:text-white" href="/archive">
               Archive
             </Link>
+            <Link className="text-zinc-400 hover:text-white" href="/podcasts">
+              Podcasts
+            </Link>
             <Link className="text-zinc-400 hover:text-white" href="/search">
               Search
             </Link>

@@ -125,6 +125,8 @@ model Event {
   coverImageUrl  String?
   bannerImageUrl String?
   replayUrl      String?
+  /// Public podcast: Spotify / Apple / YouTube episode or show URL (or official embed URL). Rendered on the event page.
+  podcastEmbedUrl String?
   resultsSummary String?
 
   recurrenceSeriesId String?
@@ -137,7 +139,8 @@ model Event {
   archiveEntries     ArchiveEntry[]
   chatMessages       ChatMessage[]
   attendees          EventAttendance[]
-  featuredAsSiteLive SiteSettings?    @relation("SiteFeaturedLive")
+  featuredAsSiteLive     SiteSettings? @relation("SiteFeaturedLive")
+  featuredAsSitePodcast  SiteSettings? @relation("SiteFeaturedPodcast")
 }
 
 /// Logged-in users who tapped “Join” on an event (RSVP-style).
@@ -178,6 +181,10 @@ model SiteSettings {
 
   featuredLiveEventId String? @unique
   featuredLiveEvent   Event?  @relation("SiteFeaturedLive", fields: [featuredLiveEventId], references: [id])
+
+  /// Admin-picked podcast episode (event with podcastEmbedUrl) for homepage highlight.
+  featuredPodcastEventId String? @unique
+  featuredPodcastEvent   Event?  @relation("SiteFeaturedPodcast", fields: [featuredPodcastEventId], references: [id])
 
   heroTitle    String?
   heroSubtitle String?

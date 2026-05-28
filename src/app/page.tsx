@@ -1,15 +1,24 @@
 import Link from "next/link";
 import { getArchiveEntries, getPublicLiveEvent, getSiteSettings, getUpcomingEvents } from "@/lib/queries";
 import { EventCard } from "@/components/event-card";
+import { HomePodcastsSection } from "@/components/home-podcasts-section";
 import { LocalDateTime } from "@/components/local-datetime";
 import { statusLabel } from "@/lib/event-status";
+import {
+  getFeaturedPodcastEpisode,
+  getPodcastEpisodes,
+  getPopularPodcastShows,
+} from "@/lib/podcast-queries";
 
 export default async function HomePage() {
-  const [live, upcoming, archive, settings] = await Promise.all([
+  const [live, upcoming, archive, settings, featuredPodcast, podcastEpisodes, podcastShows] = await Promise.all([
     getPublicLiveEvent(),
     getUpcomingEvents(6),
     getArchiveEntries(6),
     getSiteSettings(),
+    getFeaturedPodcastEpisode(),
+    getPodcastEpisodes(12),
+    getPopularPodcastShows(8),
   ]);
 
   return (
@@ -94,6 +103,12 @@ export default async function HomePage() {
           <p className="text-zinc-500">No upcoming events published yet. Producers are probably napping.</p>
         )}
       </section>
+
+      <HomePodcastsSection
+        featured={featuredPodcast}
+        newestEpisodes={podcastEpisodes}
+        popularShows={podcastShows}
+      />
 
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">

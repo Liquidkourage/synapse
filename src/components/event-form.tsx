@@ -71,6 +71,7 @@ export function EventEditForm({
           coverImageUrl: event.coverImageUrl ?? "",
           bannerImageUrl: event.bannerImageUrl ?? "",
           replayUrl: event.replayUrl ?? "",
+          podcastEmbedUrl: event.podcastEmbedUrl ?? "",
           resultsSummary: event.resultsSummary ?? "",
           recurrenceNote: event.recurrenceNote ?? "",
           twitchChannelLogin: event.twitchChannelLogin ?? "",
@@ -434,6 +435,22 @@ function FormFields({
           name="bannerImageUrl"
           defaultValue={d.bannerImageUrl}
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+      <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
+        <label className="block text-sm font-medium text-violet-200/90">Public podcast (embedded player)</label>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+          Paste a public episode or show link from{" "}
+          <span className="text-zinc-400">Spotify</span>, <span className="text-zinc-400">Apple Podcasts</span>, or{" "}
+          <span className="text-zinc-400">YouTube</span>. Synapse embeds the official player on the event page. You can
+          also use a direct <code className="rounded bg-zinc-900 px-1 text-zinc-400">https://…</code> link to an audio
+          file (.mp3, .m4a).
+        </p>
+        <input
+          name="podcastEmbedUrl"
+          placeholder="https://open.spotify.com/episode/…"
+          defaultValue={d.podcastEmbedUrl}
+          className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
       <div>
