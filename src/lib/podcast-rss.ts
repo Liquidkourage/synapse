@@ -22,7 +22,22 @@ const parser = new Parser();
 const MAX_EPISODES = 150;
 
 export async function fetchPodcastFeed(feedUrl: string): Promise<ParsedRssFeed> {
-  const feed = await parser.parseURL(feedUrl);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  let feed: Awaited<ReturnType<Parser["parseString"]>>;
+  try {
+    const res = await fetch(feedUrl, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Synapse/1.0 (podcast feed sync)" },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) {
+      throw new Error(`Feed request failed (${res.status})`);
+    }
+    feed = await parser.parseString(await res.text());
+  } finally {
+    clearTimeout(timeout);
+  }
   const channelImage =
     (feed.image?.url as string | undefined) ??
     (feed.itunes?.image as string | undefined) ??
@@ -71,14 +86,14 @@ function episodeListenUrl(item: Parser.Item): string | null {
   const itemAny = item as Parser.Item & { id?: string };
   const guid = String(item.guid ?? itemAny.id ?? "");
 
+  const enclosure = item.enclosure?.url?.trim();
+  if (enclosure && resolvePodcastEmbed(enclosure)) return enclosure;
+
   const spotifyEp = guid.match(/spotify:episode:([a-zA-Z0-9]+)/i);
   if (spotifyEp) return `https://open.spotify.com/episode/${spotifyEp[1]}`;
 
   const link = item.link?.trim();
   if (link && resolvePodcastEmbed(link)) return link;
-
-  const enclosure = item.enclosure?.url?.trim();
-  if (enclosure && resolvePodcastEmbed(enclosure)) return enclosure;
 
   return null;
 }

@@ -20,6 +20,7 @@ import {
 import type { EventKind } from "@/generated/prisma";
 import { revalidateEventPublicPaths } from "@/lib/event-page-path";
 import { importPodcastShow, PodcastImportError, shouldBulkImportPodcast } from "@/lib/podcast-import";
+import { looksLikeRssFeedUrl } from "@/lib/podcast-url";
 
 const emptyToUndef = (v: unknown) => {
   if (v === undefined || v === null) return undefined;
@@ -139,6 +140,12 @@ export async function createEvent(formData: FormData) {
     }
   }
 
+  if (eventKind === "PODCAST" && podcastUrl && looksLikeRssFeedUrl(podcastUrl)) {
+    redirect(
+      `/host/events/new?podcastError=${encodeURIComponent("Could not import episodes from that feed. Check the URL is reachable and try again.")}`,
+    );
+  }
+
   const slugBase = slugify(parsed.data.title);
   let slug = slugBase;
   let n = 0;
@@ -237,6 +244,47 @@ export async function updateEvent(eventId: string, formData: FormData) {
   } catch (e) {
     console.error("[updateEvent] Invalid schedule:", e);
     return;
+  }
+
+  const podcastUrl = eventKind === "PODCAST" ? ensureHttpUrl(parsed.data.podcastEmbedUrl) : null;
+  if (eventKind === "PODCAST" && podcastUrl && shouldBulkImportPodcast(podcastUrl)) {
+    const hostId =
+      session.user.role === "ADMIN" || session.user.role === "PRODUCER"
+        ? (formData.get("hostId") as string) || existing.hostId
+        : existing.hostId;
+
+    try {
+      const result = await importPodcastShow({
+        feedOrShowUrl: podcastUrl,
+        hostId,
+        producerId: parsed.data.producerId || existing.producerId,
+        timezone: tz,
+        status,
+        showTitleFallback: parsed.data.title,
+        showDescriptionFallback: parsed.data.shortDescription,
+        coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? existing.coverImageUrl,
+      });
+
+      if (looksLikeRssFeedUrl(existing.podcastEmbedUrl ?? "")) {
+        await prisma.event.delete({ where: { id: eventId } });
+      }
+
+      revalidatePath("/host/events");
+      revalidatePath("/podcasts");
+      revalidatePath("/podcasts/episodes");
+      revalidatePath("/");
+      const q = new URLSearchParams({
+        podcastImported: String(result.created),
+        podcastSkipped: String(result.skipped),
+        show: result.showTitle,
+      });
+      redirect(`/host/events?${q.toString()}`);
+    } catch (e) {
+      if (e instanceof PodcastImportError) {
+        redirect(`/host/events/${eventId}/edit?podcastError=${encodeURIComponent(e.message)}`);
+      }
+      throw e;
+    }
   }
 
   await prisma.event.update({

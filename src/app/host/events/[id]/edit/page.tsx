@@ -8,8 +8,15 @@ import { getSynapseVideoServerHints } from "@/lib/synapse-video";
 import { eventPublicPath } from "@/lib/event-page-path";
 import { isPodcastEvent } from "@/lib/event-kind";
 
-export default async function EditHostEventPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditHostEventPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ podcastError?: string }>;
+}) {
   const { id } = await params;
+  const { podcastError } = await searchParams;
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -40,6 +47,11 @@ export default async function EditHostEventPage({ params }: { params: Promise<{ 
       <p className="text-sm text-zinc-500">
         Slug: <code className="text-zinc-400">{event.slug}</code> (immutable in V1)
       </p>
+      {podcastError ? (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/25 px-4 py-3 text-sm text-amber-200/90">
+          {podcastError}
+        </p>
+      ) : null}
       <div className="rounded-xl border border-violet-500/30 bg-violet-950/25 px-4 py-3 text-sm">
         <p className="font-medium text-violet-200">This screen is only the settings form.</p>
         <p className="mt-1 text-zinc-400">

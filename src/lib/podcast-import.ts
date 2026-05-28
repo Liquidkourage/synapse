@@ -98,7 +98,15 @@ export async function importPodcastShow(options: {
     );
   }
 
-  const feed = await fetchPodcastFeed(feedUrl);
+  let feed;
+  try {
+    feed = await fetchPodcastFeed(feedUrl);
+  } catch (e) {
+    console.error("[podcast-import] Feed fetch failed:", e);
+    throw new PodcastImportError(
+      "Could not download the podcast feed. Check the URL is public and try again in a minute.",
+    );
+  }
   if (feed.episodes.length === 0) {
     throw new PodcastImportError("The podcast feed has no episodes with a supported listen link.");
   }

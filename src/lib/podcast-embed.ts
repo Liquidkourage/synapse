@@ -1,4 +1,5 @@
 import { getStreamEmbedUrl } from "@/lib/video-embed";
+import { looksLikeRssFeedUrl } from "@/lib/podcast-url";
 
 export type PodcastEmbed =
   | { kind: "iframe"; src: string; aspect: "compact" | "video" }
@@ -87,6 +88,9 @@ export function podcastEmbedRejectedReason(raw: string | null | undefined): stri
   const trimmed = raw?.trim();
   if (!trimmed) return null;
   if (resolvePodcastEmbed(trimmed)) return null;
+  if (looksLikeRssFeedUrl(trimmed)) {
+    return "This URL is the show’s RSS feed, not one episode. Delete this entry, then use Host → New event → Podcast episode and paste the same feed URL to import every episode with a built-in player.";
+  }
   try {
     const u = new URL(trimmed);
     const host = u.hostname.replace(/^www\./, "").toLowerCase();
