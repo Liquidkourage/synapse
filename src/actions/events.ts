@@ -97,12 +97,17 @@ export async function createEvent(formData: FormData) {
   }
 
   const tz = parsed.data.timezone.trim();
+  const durationInput = eventKind === "PODCAST" ? "0:15" : parsed.data.duration;
+  const status =
+    eventKind === "PODCAST"
+      ? ((parsed.data.status as EventStatus | undefined) ?? "COMPLETED")
+      : (parsed.data.status as EventStatus);
   let startAt: Date;
   let endAt: Date;
   try {
     assertValidIanaTimeZone(tz);
     startAt = parseEventStartInTimeZone(parsed.data.startAt, tz);
-    endAt = addDurationToStart(startAt, parseDurationHhMm(parsed.data.duration));
+    endAt = addDurationToStart(startAt, parseDurationHhMm(durationInput));
   } catch (e) {
     console.error("[createEvent] Invalid schedule:", e);
     return;
@@ -117,27 +122,33 @@ export async function createEvent(formData: FormData) {
       startAt,
       endAt,
       timezone: tz,
-      status: parsed.data.status as EventStatus,
-      statusOverride: parsed.data.statusOverride ? (parsed.data.statusOverride as EventStatus) : null,
+      status,
+      statusOverride:
+        eventKind === "PODCAST"
+          ? null
+          : parsed.data.statusOverride
+            ? (parsed.data.statusOverride as EventStatus)
+            : null,
       hostId,
       producerId: parsed.data.producerId || null,
-      platformName: parsed.data.platformName || null,
-      externalUrl: ensureHttpUrl(parsed.data.externalUrl) ?? null,
-      embedUrl: ensureHttpUrl(parsed.data.embedUrl) ?? null,
-      secondaryEmbedUrl: ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
-      broadcastEmbedUrl: ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
-      broadcastHostOnlyJoin: parsed.data.broadcastHostOnlyJoin ?? false,
+      platformName: eventKind === "PODCAST" ? null : parsed.data.platformName || null,
+      externalUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.externalUrl) ?? null,
+      embedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.embedUrl) ?? null,
+      secondaryEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
+      broadcastEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
+      broadcastHostOnlyJoin: eventKind === "PODCAST" ? false : (parsed.data.broadcastHostOnlyJoin ?? false),
       broadcastStreamingMode,
-      integrationType: parsed.data.integrationType || null,
-      instructions: parsed.data.instructions || null,
+      integrationType: eventKind === "PODCAST" ? null : parsed.data.integrationType || null,
+      instructions: eventKind === "PODCAST" ? null : parsed.data.instructions || null,
       coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
-      bannerImageUrl: ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
-      replayUrl: ensureHttpUrl(parsed.data.replayUrl) ?? null,
+      bannerImageUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
+      replayUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.replayUrl) ?? null,
       podcastEmbedUrl: ensureHttpUrl(parsed.data.podcastEmbedUrl) ?? null,
-      resultsSummary: parsed.data.resultsSummary || null,
-      recurrenceNote: parsed.data.recurrenceNote || null,
-      twitchChannelLogin: parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
-      venmoHandle: normalizeVenmoHandle(parsed.data.venmoHandle ?? null) ?? null,
+      resultsSummary: eventKind === "PODCAST" ? null : parsed.data.resultsSummary || null,
+      recurrenceNote: eventKind === "PODCAST" ? null : parsed.data.recurrenceNote || null,
+      twitchChannelLogin:
+        eventKind === "PODCAST" ? null : parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
+      venmoHandle: eventKind === "PODCAST" ? null : normalizeVenmoHandle(parsed.data.venmoHandle ?? null) ?? null,
       eventKind,
     },
   });
@@ -177,12 +188,17 @@ export async function updateEvent(eventId: string, formData: FormData) {
   const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
 
   const tz = parsed.data.timezone.trim();
+  const durationInput = eventKind === "PODCAST" ? "0:15" : parsed.data.duration;
+  const status =
+    eventKind === "PODCAST"
+      ? ((parsed.data.status as EventStatus | undefined) ?? "COMPLETED")
+      : (parsed.data.status as EventStatus);
   let startAt: Date;
   let endAt: Date;
   try {
     assertValidIanaTimeZone(tz);
     startAt = parseEventStartInTimeZone(parsed.data.startAt, tz);
-    endAt = addDurationToStart(startAt, parseDurationHhMm(parsed.data.duration));
+    endAt = addDurationToStart(startAt, parseDurationHhMm(durationInput));
   } catch (e) {
     console.error("[updateEvent] Invalid schedule:", e);
     return;
@@ -198,25 +214,31 @@ export async function updateEvent(eventId: string, formData: FormData) {
       startAt,
       endAt,
       timezone: tz,
-      status: parsed.data.status as EventStatus,
-      statusOverride: parsed.data.statusOverride ? (parsed.data.statusOverride as EventStatus) : null,
-      platformName: parsed.data.platformName || null,
-      externalUrl: ensureHttpUrl(parsed.data.externalUrl) ?? null,
-      embedUrl: ensureHttpUrl(parsed.data.embedUrl) ?? null,
-      secondaryEmbedUrl: ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
-      broadcastEmbedUrl: ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
-      broadcastHostOnlyJoin: parsed.data.broadcastHostOnlyJoin ?? false,
+      status,
+      statusOverride:
+        eventKind === "PODCAST"
+          ? null
+          : parsed.data.statusOverride
+            ? (parsed.data.statusOverride as EventStatus)
+            : null,
+      platformName: eventKind === "PODCAST" ? null : parsed.data.platformName || null,
+      externalUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.externalUrl) ?? null,
+      embedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.embedUrl) ?? null,
+      secondaryEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
+      broadcastEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
+      broadcastHostOnlyJoin: eventKind === "PODCAST" ? false : (parsed.data.broadcastHostOnlyJoin ?? false),
       broadcastStreamingMode,
-      integrationType: parsed.data.integrationType || null,
-      instructions: parsed.data.instructions || null,
+      integrationType: eventKind === "PODCAST" ? null : parsed.data.integrationType || null,
+      instructions: eventKind === "PODCAST" ? null : parsed.data.instructions || null,
       coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
-      bannerImageUrl: ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
-      replayUrl: ensureHttpUrl(parsed.data.replayUrl) ?? null,
+      bannerImageUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
+      replayUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.replayUrl) ?? null,
       podcastEmbedUrl: ensureHttpUrl(parsed.data.podcastEmbedUrl) ?? null,
-      resultsSummary: parsed.data.resultsSummary || null,
-      recurrenceNote: parsed.data.recurrenceNote || null,
-      twitchChannelLogin: parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
-      venmoHandle: normalizeVenmoHandle(parsed.data.venmoHandle ?? null) ?? null,
+      resultsSummary: eventKind === "PODCAST" ? null : parsed.data.resultsSummary || null,
+      recurrenceNote: eventKind === "PODCAST" ? null : parsed.data.recurrenceNote || null,
+      twitchChannelLogin:
+        eventKind === "PODCAST" ? null : parsed.data.twitchChannelLogin?.trim().toLowerCase() || null,
+      venmoHandle: eventKind === "PODCAST" ? null : normalizeVenmoHandle(parsed.data.venmoHandle ?? null) ?? null,
       ...(isProducerOrAbove(session.user.role) && parsed.data.producerId
         ? { producerId: parsed.data.producerId }
         : {}),

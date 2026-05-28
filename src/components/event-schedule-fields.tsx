@@ -139,6 +139,21 @@ function persistPreferredTimezone(tz: string) {
   }
 }
 
+function buildPodcastReleaseSummary(date: string, timeHm: string, tz: string): string {
+  if (!date || !timeHm?.trim() || !tz.trim()) {
+    return "Pick a release date, time, and timezone.";
+  }
+  const wall = `${date}T${timeHm.slice(0, 5)}:00`;
+  try {
+    assertValidIanaForDisplay(tz);
+    const startInst = fromZonedTime(wall, tz);
+    const line = formatInTimeZone(startInst, tz, "EEEE, MMMM d, yyyy 'at' h:mm a (zzzz)");
+    return `Listed as published ${line}. Used for sorting on /podcasts.`;
+  } catch {
+    return "Check the timezone name if this does not look right.";
+  }
+}
+
 function buildAccessibleSummary(date: string, timeHm: string, tz: string, durH: number, durM: number): string {
   if (!date || !timeHm?.trim() || !tz.trim()) {
     return "Select a date, time, and timezone to see a full summary.";
@@ -173,12 +188,16 @@ export function EventScheduleFields({
   defaultDuration = "02:00",
   defaultTimezone = "America/New_York",
   preferStoredTimezone = false,
+  variant = "live",
 }: {
   defaultStartAt?: string;
   defaultDuration?: string;
   defaultTimezone?: string;
   preferStoredTimezone?: boolean;
+  /** Podcast episodes only need a release date/time for sorting — no duration. */
+  variant?: "live" | "podcast";
 }) {
+  const isPodcast = variant === "podcast";
   const knownZones = useMemo(() => new Set(ZONE_OPTIONS.map((z) => z.value)), []);
   const storedTzApplied = useRef(false);
 
@@ -215,17 +234,23 @@ export function EventScheduleFields({
 
   const describedByOverview = `${P}-overview ${P}-start-group-hint`;
   const summaryAnnouncement = useMemo(
-    () => buildAccessibleSummary(date, time, resolvedTz, durH, durM),
-    [date, time, resolvedTz, durH, durM],
+    () =>
+      isPodcast
+        ? buildPodcastReleaseSummary(date, time, resolvedTz)
+        : buildAccessibleSummary(date, time, resolvedTz, durH, durM),
+    [isPodcast, date, time, resolvedTz, durH, durM],
   );
 
   return (
     <fieldset className="space-y-4 rounded-xl border border-zinc-700/60 bg-zinc-900/25 p-4">
-      <legend className="px-1 text-sm font-medium text-zinc-300">When</legend>
+      <legend className="px-1 text-sm font-medium text-zinc-300">
+        {isPodcast ? "Release date" : "When"}
+      </legend>
 
       <p id={`${P}-overview`} className="text-xs leading-snug text-zinc-500">
-        Start date and time are chosen from the lists below — no typing needed. Times are wall-clock in the timezone you
-        choose (not UTC). Your last timezone on this device is remembered for new events.
+        {isPodcast
+          ? "When this episode went live (or should appear in the podcast list). Times are wall-clock in the timezone you choose."
+          : "Start date and time are chosen from the lists below. Times are wall-clock in the timezone you choose (not UTC). Your last timezone on this device is remembered for new events."}
       </p>
 
       <div
@@ -240,7 +265,7 @@ export function EventScheduleFields({
       </div>
 
       <input type="hidden" name="startAt" value={startAtValue} />
-      <input type="hidden" name="duration" value={durationValue} />
+      <input type="hidden" name="duration" value={isPodcast ? "0:15" : durationValue} />
       <input type="hidden" name="timezone" value={resolvedTz} />
 
       <div>
@@ -307,11 +332,13 @@ export function EventScheduleFields({
 
       <div role="group" aria-labelledby={`${P}-start-heading`}>
         <p id={`${P}-start-heading`} className="text-sm font-medium text-zinc-300">
-          Start
+          {isPodcast ? "Date & time" : "Start"}
         </p>
-        <p id={`${P}-start-group-hint`} className="mt-1 text-xs text-zinc-500">
-          Required: pick year, month, day, hour, and minute from the menus — works entirely with pointer or keyboard.
-        </p>
+        {!isPodcast ? (
+          <p id={`${P}-start-group-hint`} className="mt-1 text-xs text-zinc-500">
+            Required: pick year, month, day, hour, and minute from the menus — works entirely with pointer or keyboard.
+          </p>
+        ) : null}
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium text-zinc-300">Start date</p>
@@ -440,58 +467,60 @@ export function EventScheduleFields({
         </div>
       </div>
 
-      <fieldset className="space-y-2 border-0 p-0">
-        <legend className="text-sm font-medium text-zinc-300">Duration</legend>
-        <p id={`${P}-duration-hint`} className="text-xs text-zinc-500">
-          How long the event runs after the start time. Choose hours and minutes from the lists — no typing.
-        </p>
-        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-          <div>
-            <label htmlFor={`${P}-duration-hours`} className="sr-only">
-              Duration (hours)
-            </label>
-            <select
-              id={`${P}-duration-hours`}
-              value={durH}
-              onChange={(e) => {
-                const h = Number(e.target.value);
-                setDurH(h);
-                if (h === 0 && durM === 0) setDurM(1);
-              }}
-              aria-describedby={`${P}-overview ${P}-duration-hint`}
-              className="min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
-            >
-              {HOURS.map((h) => (
-                <option key={h} value={h}>
-                  {h} {h === 1 ? "hour" : "hours"}
-                </option>
-              ))}
-            </select>
+      {!isPodcast ? (
+        <fieldset className="space-y-2 border-0 p-0">
+          <legend className="text-sm font-medium text-zinc-300">Duration</legend>
+          <p id={`${P}-duration-hint`} className="text-xs text-zinc-500">
+            How long the event runs after the start time. Choose hours and minutes from the lists — no typing.
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+            <div>
+              <label htmlFor={`${P}-duration-hours`} className="sr-only">
+                Duration (hours)
+              </label>
+              <select
+                id={`${P}-duration-hours`}
+                value={durH}
+                onChange={(e) => {
+                  const h = Number(e.target.value);
+                  setDurH(h);
+                  if (h === 0 && durM === 0) setDurM(1);
+                }}
+                aria-describedby={`${P}-overview ${P}-duration-hint`}
+                className="min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
+              >
+                {HOURS.map((h) => (
+                  <option key={h} value={h}>
+                    {h} {h === 1 ? "hour" : "hours"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`${P}-duration-minutes`} className="sr-only">
+                Duration (minutes)
+              </label>
+              <select
+                id={`${P}-duration-minutes`}
+                value={durM}
+                onChange={(e) => {
+                  const m = Number(e.target.value);
+                  setDurM(m);
+                  if (durH === 0 && m === 0) setDurH(1);
+                }}
+                aria-describedby={`${P}-overview ${P}-duration-hint`}
+                className="min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
+              >
+                {(durH === 0 ? MINUTES.slice(1) : MINUTES).map((m) => (
+                  <option key={m} value={m}>
+                    {m} min
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <label htmlFor={`${P}-duration-minutes`} className="sr-only">
-              Duration (minutes)
-            </label>
-            <select
-              id={`${P}-duration-minutes`}
-              value={durM}
-              onChange={(e) => {
-                const m = Number(e.target.value);
-                setDurM(m);
-                if (durH === 0 && m === 0) setDurH(1);
-              }}
-              aria-describedby={`${P}-overview ${P}-duration-hint`}
-              className="min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-white sm:text-sm"
-            >
-              {(durH === 0 ? MINUTES.slice(1) : MINUTES).map((m) => (
-                <option key={m} value={m}>
-                  {m} min
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </fieldset>
+        </fieldset>
+      ) : null}
     </fieldset>
   );
 }

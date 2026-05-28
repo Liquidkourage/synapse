@@ -107,24 +107,26 @@ function FormFields({
   const d = defaults ?? {};
   const defaultKind = (d.eventKind === "PODCAST" ? "PODCAST" : "LIVE_INTERACTIVE") as "LIVE_INTERACTIVE" | "PODCAST";
 
-  const shared = (
+  const hostField =
+    hostOptions && hostOptions.length > 0 ? (
+      <div>
+        <label className="block text-sm text-zinc-400">Host</label>
+        <select
+          name="hostId"
+          defaultValue={hostOptions[0]?.id}
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        >
+          {hostOptions.map((h) => (
+            <option key={h.id} value={h.id}>
+              {h.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    ) : null;
+
+  const titleFields = (
     <>
-      {hostOptions && hostOptions.length > 0 && (
-        <div>
-          <label className="block text-sm text-zinc-400">Host</label>
-          <select
-            name="hostId"
-            defaultValue={hostOptions[0]?.id}
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-          >
-            {hostOptions.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
       <div>
         <label className="block text-sm text-zinc-400">Title</label>
         <input
@@ -143,6 +145,39 @@ function FormFields({
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
         />
       </div>
+    </>
+  );
+
+  const podcastShared = (
+    <>
+      {hostField}
+      {titleFields}
+      <div>
+        <label className="block text-sm text-zinc-400">Episode notes (optional)</label>
+        <textarea
+          name="longDescription"
+          rows={3}
+          defaultValue={d.longDescription}
+          placeholder="Show notes, links, or credits"
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+      </div>
+      <EventScheduleFields
+        variant="podcast"
+        defaultStartAt={d.startAt}
+        defaultDuration="0:15"
+        defaultTimezone={d.timezone ?? "America/New_York"}
+        preferStoredTimezone={!eventId}
+      />
+      <input type="hidden" name="status" value={d.status === "DRAFT" ? "DRAFT" : "COMPLETED"} />
+      <CoverImageInput defaultValue={d.coverImageUrl} />
+    </>
+  );
+
+  const liveShared = (
+    <>
+      {hostField}
+      {titleFields}
       <div>
         <label className="block text-sm text-zinc-400">Long description</label>
         <textarea
@@ -468,32 +503,29 @@ function FormFields({
   );
 
   const podcast = (
-    <>
-      <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
-        <label className="block text-sm font-medium text-violet-200/90">Public podcast URL (required)</label>
-        <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-          Paste a public episode or show link from Spotify, Apple Podcasts, or YouTube. Listed on the{" "}
-          <span className="text-violet-300/90">homepage podcasts</span> section and{" "}
-          <span className="text-violet-300/90">/podcasts</span>. Direct .mp3 / .m4a links work too.
-        </p>
-        <input
-          name="podcastEmbedUrl"
-          required
-          placeholder="https://open.spotify.com/episode/…"
-          defaultValue={d.podcastEmbedUrl}
-          className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
-      </div>
-      <div>
-        <label className="block text-sm text-zinc-400">Replay URL (optional)</label>
-        <input
-          name="replayUrl"
-          defaultValue={d.replayUrl}
-          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
-      </div>
-    </>
+    <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
+      <label className="block text-sm font-medium text-violet-200/90">Podcast link (required)</label>
+      <p className="mt-1 text-xs text-zinc-500">
+        Spotify, Apple Podcasts, YouTube, or a direct .mp3 / .m4a URL. Appears on the event page, homepage, and{" "}
+        <span className="text-violet-300/90">/podcasts</span>.
+      </p>
+      <input
+        name="podcastEmbedUrl"
+        required
+        placeholder="https://open.spotify.com/episode/…"
+        defaultValue={d.podcastEmbedUrl}
+        className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+      />
+    </div>
   );
 
-  return <EventFormKindLayout defaultKind={defaultKind} shared={shared} live={live} podcast={podcast} />;
+  return (
+    <EventFormKindLayout
+      defaultKind={defaultKind}
+      liveShared={liveShared}
+      podcastShared={podcastShared}
+      live={live}
+      podcast={podcast}
+    />
+  );
 }
