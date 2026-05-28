@@ -5,9 +5,17 @@ import { redirect } from "next/navigation";
 import { isHostOrAbove } from "@/lib/rbac";
 import { eventPublicPath } from "@/lib/event-page-path";
 
-export default async function HostEventsPage() {
+export default async function HostEventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ podcastImported?: string; podcastSkipped?: string; show?: string }>;
+}) {
   const session = await auth();
   if (!session?.user || !isHostOrAbove(session.user.role)) redirect("/login");
+
+  const { podcastImported, podcastSkipped, show } = await searchParams;
+  const importedCount = podcastImported ? Number.parseInt(podcastImported, 10) : 0;
+  const skippedCount = podcastSkipped ? Number.parseInt(podcastSkipped, 10) : 0;
 
   const where =
     session.user.role === "ADMIN" || session.user.role === "PRODUCER"
@@ -35,6 +43,18 @@ export default async function HostEventsPage() {
           New event
         </Link>
       </div>
+      {importedCount > 0 ? (
+        <p className="rounded-xl border border-emerald-500/30 bg-emerald-950/25 px-4 py-3 text-sm text-emerald-200/90">
+          Imported {importedCount} episode{importedCount === 1 ? "" : "s"}
+          {show ? ` for “${show}”` : ""}.
+          {skippedCount > 0
+            ? ` Skipped ${skippedCount} already on Synapse.`
+            : null}{" "}
+          <Link href="/podcasts/episodes" className="font-medium text-emerald-300 hover:underline">
+            View all episodes
+          </Link>
+        </p>
+      ) : null}
       <ul className="space-y-2">
         {events.map((e) => (
           <li

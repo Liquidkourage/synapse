@@ -5,7 +5,12 @@ import { isHostOrAbove } from "@/lib/rbac";
 import { EventCreateForm } from "@/components/event-form";
 import { getSynapseVideoServerHints } from "@/lib/synapse-video";
 
-export default async function NewHostEventPage() {
+export default async function NewHostEventPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ podcastError?: string }>;
+}) {
+  const { podcastError } = await searchParams;
   const session = await auth();
   if (!session?.user || !isHostOrAbove(session.user.role)) redirect("/login");
 
@@ -23,6 +28,11 @@ export default async function NewHostEventPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-white">New event</h1>
+      {podcastError ? (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/25 px-4 py-3 text-sm text-amber-200/90">
+          {podcastError}
+        </p>
+      ) : null}
       <EventCreateForm
         hostOptions={hostOptions}
         nativeVideoAvailable={videoHints.nativeVideoAvailable}

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { EventStatus } from "@/generated/prisma";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/event-schedule";
 import type { EventKind } from "@/generated/prisma";
 import { revalidateEventPublicPaths } from "@/lib/event-page-path";
+import { importPodcastShow, PodcastImportError, shouldBulkImportPodcast } from "@/lib/podcast-import";
 
 const emptyToUndef = (v: unknown) => {
   if (v === undefined || v === null) return undefined;
@@ -62,7 +64,7 @@ const eventFields = z.object({
   if (kind === "PODCAST" && !data.podcastEmbedUrl?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Podcast episodes need a public podcast URL (Spotify, Apple, YouTube, or audio file).",
+      message: "Podcast episodes need a show link, episode link, RSS feed, or audio file URL.",
       path: ["podcastEmbedUrl"],
     });
   }
@@ -89,14 +91,6 @@ export async function createEvent(formData: FormData) {
       ? (formData.get("hostId") as string) || session.user.id
       : session.user.id;
 
-  const slugBase = slugify(parsed.data.title);
-  let slug = slugBase;
-  let n = 0;
-  while (await prisma.event.findUnique({ where: { slug } })) {
-    n += 1;
-    slug = `${slugBase}-${n}`;
-  }
-
   const tz = parsed.data.timezone.trim();
   const durationInput = eventKind === "PODCAST" ? "0:15" : parsed.data.duration;
   const status =
@@ -112,6 +106,45 @@ export async function createEvent(formData: FormData) {
   } catch (e) {
     console.error("[createEvent] Invalid schedule:", e);
     return;
+  }
+
+  const podcastUrl = eventKind === "PODCAST" ? ensureHttpUrl(parsed.data.podcastEmbedUrl) : null;
+  if (eventKind === "PODCAST" && podcastUrl && shouldBulkImportPodcast(podcastUrl)) {
+    try {
+      const result = await importPodcastShow({
+        feedOrShowUrl: podcastUrl,
+        hostId,
+        producerId: parsed.data.producerId || null,
+        timezone: tz,
+        status,
+        showTitleFallback: parsed.data.title,
+        showDescriptionFallback: parsed.data.shortDescription,
+        coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
+      });
+      revalidatePath("/host/events");
+      revalidatePath("/podcasts");
+      revalidatePath("/podcasts/episodes");
+      revalidatePath("/");
+      const q = new URLSearchParams({
+        podcastImported: String(result.created),
+        podcastSkipped: String(result.skipped),
+        show: result.showTitle,
+      });
+      redirect(`/host/events?${q.toString()}`);
+    } catch (e) {
+      if (e instanceof PodcastImportError) {
+        redirect(`/host/events/new?podcastError=${encodeURIComponent(e.message)}`);
+      }
+      throw e;
+    }
+  }
+
+  const slugBase = slugify(parsed.data.title);
+  let slug = slugBase;
+  let n = 0;
+  while (await prisma.event.findUnique({ where: { slug } })) {
+    n += 1;
+    slug = `${slugBase}-${n}`;
   }
 
   const created = await prisma.event.create({

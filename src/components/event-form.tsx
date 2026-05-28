@@ -506,13 +506,15 @@ function FormFields({
     <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
       <label className="block text-sm font-medium text-violet-200/90">Podcast link (required)</label>
       <p className="mt-1 text-xs text-zinc-500">
-        Spotify, Apple Podcasts, YouTube, or a direct .mp3 / .m4a URL. Appears on the event page, homepage, and{" "}
+        Paste a <strong className="font-medium text-zinc-400">show</strong> link (Apple Podcasts, Spotify show, or RSS)
+        to import every episode, or a single <strong className="font-medium text-zinc-400">episode</strong> / YouTube /
+        .mp3 link for one entry. Episodes use release dates from the feed and appear on{" "}
         <span className="text-violet-300/90">/podcasts</span>.
       </p>
       <input
         name="podcastEmbedUrl"
         required
-        placeholder="https://open.spotify.com/episode/…"
+        placeholder="https://podcasts.apple.com/…/podcast/…/id… or https://open.spotify.com/show/…"
         defaultValue={d.podcastEmbedUrl}
         className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
       />
