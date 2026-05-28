@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/queries";
+import { displayPodcastShowTitle } from "@/lib/podcast-show-meta";
 import type { Event, EventStatus, Prisma, User } from "@/generated/prisma";
 
 const PODCAST_EXCLUDED_STATUSES: EventStatus[] = ["DRAFT", "CANCELLED"];
@@ -18,12 +19,15 @@ export type PodcastEpisodeRow = Event & {
 export type PodcastShowRow = {
   hostId: string;
   host: User;
+  feedUrl: string | null;
   title: string;
   episodeCount: number;
   totalListeners: number;
   latestEpisode: PodcastEpisodeRow;
   coverImageUrl: string | null;
 };
+
+export { podcastShowPath } from "@/lib/podcast-show-meta";
 
 export async function getPodcastEpisodes(options?: { limit?: number; hostId?: string }): Promise<PodcastEpisodeRow[]> {
   const { limit, hostId } = options ?? {};
@@ -78,22 +82,25 @@ export async function getPopularPodcastShows(limit = 8): Promise<PodcastShowRow[
     orderBy: { startAt: "desc" },
   });
 
-  const byHost = new Map<string, PodcastEpisodeRow[]>();
+  const byShow = new Map<string, PodcastEpisodeRow[]>();
   for (const ev of events) {
-    const list = byHost.get(ev.hostId) ?? [];
+    const key = ev.podcastFeedUrl?.trim() || `host:${ev.hostId}`;
+    const list = byShow.get(key) ?? [];
     list.push(ev);
-    byHost.set(ev.hostId, list);
+    byShow.set(key, list);
   }
 
   const shows: PodcastShowRow[] = [];
-  for (const [hostId, eps] of byHost) {
+  for (const [, eps] of byShow) {
     const host = eps[0]!.host;
+    const hostLabel = host.name?.trim() || host.email.split("@")[0] || "Show";
     const totalListeners = eps.reduce((n, e) => n + e._count.attendees, 0);
     const latestEpisode = eps[0]!;
     shows.push({
-      hostId,
+      hostId: host.id,
       host,
-      title: host.name?.trim() || host.email.split("@")[0] || "Show",
+      feedUrl: latestEpisode.podcastFeedUrl,
+      title: displayPodcastShowTitle(eps, hostLabel),
       episodeCount: eps.length,
       totalListeners,
       latestEpisode,
@@ -107,8 +114,4 @@ export async function getPopularPodcastShows(limit = 8): Promise<PodcastShowRow[
   });
 
   return shows.slice(0, limit);
-}
-
-export function podcastShowPath(hostId: string): string {
-  return `/podcasts/shows/${hostId}`;
 }

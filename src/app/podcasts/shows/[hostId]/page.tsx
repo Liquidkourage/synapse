@@ -1,23 +1,38 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PodcastEpisodeCard } from "@/components/podcast-episode-card";
-import { getPodcastEpisodes, getPodcastEpisodeCount } from "@/lib/podcast-queries";
+import { getPodcastEpisodes } from "@/lib/podcast-queries";
+import { displayPodcastShowTitle } from "@/lib/podcast-show-meta";
 import { prisma } from "@/lib/prisma";
 
-export default async function PodcastShowPage({ params }: { params: Promise<{ hostId: string }> }) {
+export default async function PodcastShowPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ hostId: string }>;
+  searchParams: Promise<{ feed?: string }>;
+}) {
   const { hostId } = await params;
+  const { feed } = await searchParams;
 
   const host = await prisma.user.findUnique({ where: { id: hostId } });
   if (!host) notFound();
 
-  const [episodes, episodeCount] = await Promise.all([
-    getPodcastEpisodes({ hostId }),
-    getPodcastEpisodeCount(hostId),
-  ]);
+  const allForHost = await getPodcastEpisodes({ hostId });
+  if (allForHost.length === 0) notFound();
+
+  const episodes = feed
+    ? allForHost.filter((e) => e.podcastFeedUrl === feed)
+    : allForHost.length === 1 || !allForHost.some((e) => e.podcastFeedUrl)
+      ? allForHost
+      : allForHost.filter((e) => e.podcastFeedUrl === allForHost[0]?.podcastFeedUrl);
+
   if (episodes.length === 0) notFound();
 
-  const title = host.name?.trim() || host.email.split("@")[0] || "Show";
+  const hostLabel = host.name?.trim() || host.email.split("@")[0] || "Show";
+  const title = displayPodcastShowTitle(episodes, hostLabel);
   const cover = episodes[0]?.coverImageUrl ?? host.image;
+  const episodeCount = episodes.length;
 
   return (
     <div className="space-y-8">
@@ -37,6 +52,12 @@ export default async function PodcastShowPage({ params }: { params: Promise<{ ho
           <h1 className="text-3xl font-semibold text-white">{title}</h1>
           <p className="mt-2 text-zinc-400">
             {episodeCount} {episodeCount === 1 ? "episode" : "episodes"} on Synapse
+            {title !== hostLabel ? (
+              <>
+                {" "}
+                · Hosted by {hostLabel}
+              </>
+            ) : null}
           </p>
         </div>
       </header>

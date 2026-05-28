@@ -4,7 +4,7 @@ import { podcastShowPath, type PodcastShowRow } from "@/lib/podcast-queries";
 export function PodcastShowCard({ show }: { show: PodcastShowRow }) {
   return (
     <Link
-      href={podcastShowPath(show.hostId)}
+      href={podcastShowPath(show.hostId, show.feedUrl)}
       className="group flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 transition hover:border-violet-500/35"
     >
       {show.coverImageUrl ? (

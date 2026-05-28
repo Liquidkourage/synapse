@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { isHostOrAbove } from "@/lib/rbac";
 import { eventPublicPath } from "@/lib/event-page-path";
 import { getHostPodcastGroups, hostPodcastManageHref } from "@/lib/host-podcast-library";
-import { podcastShowPath } from "@/lib/podcast-queries";
+import { podcastShowPath } from "@/lib/podcast-show-meta";
 
 export default async function HostEventsPage({
   searchParams,
@@ -140,7 +140,7 @@ export default async function HostEventsPage({
                 </div>
                 <div className="flex flex-wrap gap-3 text-sm">
                   <Link
-                    href={podcastShowPath(group.hostId)}
+                    href={podcastShowPath(group.hostId, group.feedUrl)}
                     className="text-zinc-400 hover:text-violet-300 hover:underline"
                   >
                     Public show

@@ -54,6 +54,7 @@ const eventFields = z.object({
   bannerImageUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
   replayUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
   podcastEmbedUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
+  podcastShowTitle: z.preprocess(emptyToUndef, z.string().max(200).optional()),
   resultsSummary: z.preprocess(emptyToUndef, z.string().max(8000).optional()),
   recurrenceNote: z.preprocess(emptyToUndef, z.string().max(500).optional()),
   producerId: z.preprocess(emptyToUndef, z.string().optional()),
@@ -185,6 +186,8 @@ export async function createEvent(formData: FormData) {
       bannerImageUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
       replayUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.replayUrl) ?? null,
       podcastEmbedUrl: ensureHttpUrl(parsed.data.podcastEmbedUrl) ?? null,
+      podcastShowTitle:
+        eventKind === "PODCAST" ? parsed.data.podcastShowTitle?.trim() || null : null,
       resultsSummary: eventKind === "PODCAST" ? null : parsed.data.resultsSummary || null,
       recurrenceNote: eventKind === "PODCAST" ? null : parsed.data.recurrenceNote || null,
       twitchChannelLogin:
@@ -317,6 +320,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
       bannerImageUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.bannerImageUrl) ?? null,
       replayUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.replayUrl) ?? null,
       podcastEmbedUrl: ensureHttpUrl(parsed.data.podcastEmbedUrl) ?? null,
+      podcastShowTitle:
+        eventKind === "PODCAST" ? parsed.data.podcastShowTitle?.trim() || null : null,
       resultsSummary: eventKind === "PODCAST" ? null : parsed.data.resultsSummary || null,
       recurrenceNote: eventKind === "PODCAST" ? null : parsed.data.recurrenceNote || null,
       twitchChannelLogin:
@@ -327,6 +332,19 @@ export async function updateEvent(eventId: string, formData: FormData) {
         : {}),
     },
   });
+
+  if (
+    eventKind === "PODCAST" &&
+    existing.podcastFeedUrl &&
+    parsed.data.podcastShowTitle?.trim()
+  ) {
+    await prisma.event.updateMany({
+      where: { podcastFeedUrl: existing.podcastFeedUrl, hostId: existing.hostId },
+      data: { podcastShowTitle: parsed.data.podcastShowTitle.trim() },
+    });
+    revalidatePath("/podcasts");
+    revalidatePath(`/podcasts/shows/${existing.hostId}`);
+  }
 
   revalidatePath("/host/events");
   revalidateEventPublicPaths(revalidatePath, existing);

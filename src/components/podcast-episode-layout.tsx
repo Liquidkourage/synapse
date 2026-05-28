@@ -5,7 +5,7 @@ import { PodcastEmbedPlayer } from "@/components/podcast-embed";
 import { eventKindLabel } from "@/lib/event-kind";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
 import type { PodcastEmbed } from "@/lib/podcast-embed";
-import { podcastShowPath } from "@/lib/podcast-queries";
+import { podcastShowPath } from "@/lib/podcast-show-meta";
 
 type EventWithHost = Event & {
   host: User;
@@ -21,6 +21,7 @@ export function PodcastEpisodeLayout({
   podcastEmbedError: string | null;
 }) {
   const hostLabel = event.host.name?.trim() || event.host.email;
+  const showTitle = event.podcastShowTitle?.trim();
   const platform = podcastPlatformLabel(event.podcastEmbedUrl);
 
   return (
@@ -52,8 +53,16 @@ export function PodcastEpisodeLayout({
           <p className="text-lg leading-relaxed text-zinc-300">{event.shortDescription}</p>
           <p className="text-sm text-zinc-500">
             <LocalDateTime iso={event.startAt.toISOString()} />
+            {showTitle ? (
+              <>
+                <span className="text-zinc-600"> · </span>
+                <Link href={podcastShowPath(event.hostId, event.podcastFeedUrl)} className="text-violet-400/90 hover:underline">
+                  {showTitle}
+                </Link>
+              </>
+            ) : null}
             <span className="text-zinc-600"> · </span>
-            {hostLabel}
+            <span className="text-zinc-500">Hosted by {hostLabel}</span>
           </p>
         </div>
       </header>
@@ -78,7 +87,7 @@ export function PodcastEpisodeLayout({
                 href={podcastShowPath(event.hostId)}
                 className="rounded-full border border-zinc-600 px-5 py-2.5 text-sm font-medium text-zinc-200 hover:border-zinc-400"
               >
-                More from {hostLabel}
+                More from {showTitle ?? hostLabel}
               </Link>
             </div>
           </>

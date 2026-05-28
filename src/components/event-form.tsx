@@ -74,6 +74,8 @@ export function EventEditForm({
           bannerImageUrl: event.bannerImageUrl ?? "",
           replayUrl: event.replayUrl ?? "",
           podcastEmbedUrl: event.podcastEmbedUrl ?? "",
+          podcastShowTitle: event.podcastShowTitle ?? "",
+          podcastFeedUrl: event.podcastFeedUrl ?? "",
           eventKind: effectiveEventKind(event),
           resultsSummary: event.resultsSummary ?? "",
           recurrenceNote: event.recurrenceNote ?? "",
@@ -502,13 +504,46 @@ function FormFields({
     </>
   );
 
+  const podcastMeta = (
+    <div className="space-y-3 rounded-xl border border-zinc-700/80 bg-zinc-950/60 p-4">
+      <p className="text-sm font-medium text-zinc-300">Show metadata</p>
+      <div>
+        <label className="block text-sm text-zinc-400">Show title (on /podcasts)</label>
+        <input
+          name="podcastShowTitle"
+          defaultValue={d.podcastShowTitle}
+          placeholder="e.g. Verboten"
+          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          The podcast series name from your feed — not your Synapse host display name. Saving updates all episodes
+          that share the same RSS feed.
+        </p>
+      </div>
+      {d.podcastFeedUrl ? (
+        <div>
+          <p className="text-xs font-medium text-zinc-500">RSS feed (import source)</p>
+          <p className="mt-0.5 break-all text-xs text-zinc-400">{d.podcastFeedUrl}</p>
+        </div>
+      ) : null}
+      {eventId ? (
+        <p className="text-xs text-zinc-600">
+          Episode fields below: title = this episode only; listen link = player URL for this episode.
+        </p>
+      ) : null}
+    </div>
+  );
+
   const podcast = (
-    <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
-      <label className="block text-sm font-medium text-violet-200/90">Podcast link (required)</label>
+    <div className="space-y-4">
+      {podcastMeta}
+      <div className="rounded-xl border border-violet-500/25 bg-violet-950/15 p-4">
+      <label className="block text-sm font-medium text-violet-200/90">Listen link (required)</label>
       <p className="mt-1 text-xs text-zinc-500">
-        Paste a <strong className="font-medium text-zinc-400">show</strong> link (Apple Podcasts, Spotify show, or RSS)
-        to import every episode, or a single <strong className="font-medium text-zinc-400">episode</strong> / YouTube /
-        .mp3 link for one entry. Episodes use release dates from the feed and appear on{" "}
+        {eventId
+          ? "Direct link for this episode’s player (MP3, Spotify episode, etc.). Do not paste the RSS feed here when editing."
+          : "Paste a show link (Apple, Spotify show, or RSS) to import every episode, or a single episode / .mp3 for one entry."}{" "}
+        Episodes appear on{" "}
         <span className="text-violet-300/90">/podcasts</span>.
       </p>
       <input
@@ -518,6 +553,7 @@ function FormFields({
         defaultValue={d.podcastEmbedUrl}
         className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
       />
+      </div>
     </div>
   );
 
