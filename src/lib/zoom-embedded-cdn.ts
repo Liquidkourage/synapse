@@ -25,9 +25,14 @@ export type ZoomJoinPayload = {
 };
 
 type ZoomUser = {
-  userId?: number;
+  userId?: number | string;
   isHost?: boolean;
   bHost?: boolean;
+};
+
+type ZoomI18n = {
+  load: (lang: string) => void;
+  onLoad: (callback: () => void) => void;
 };
 
 type ZoomClientGlobal = {
@@ -39,9 +44,11 @@ type ZoomClientGlobal = {
   getCurrentUser: (opts: Record<string, unknown>) => void;
   getAttendeeslist: (opts: Record<string, unknown>) => void;
   operateSpotlight?: (opts: Record<string, unknown>) => void;
+  operatePin?: (opts: Record<string, unknown>) => void;
   getSpotlightList?: (opts: Record<string, unknown>) => number[] | void;
   focusMode?: (opts: Record<string, unknown>) => void;
   inMeetingServiceListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+  i18n?: ZoomI18n;
 };
 
 function loadScript(src: string): Promise<void> {
@@ -106,6 +113,15 @@ export function leaveZoomMeeting(): Promise<void> {
   );
 }
 
+function normalizeUserId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function parseCurrentUser(res: unknown): ZoomUser | null {
   const root = res as { result?: { currentUser?: ZoomUser }; currentUser?: ZoomUser };
   return root.result?.currentUser ?? root.currentUser ?? null;
@@ -122,24 +138,21 @@ function isHostUser(user: ZoomUser | null | undefined): boolean {
 
 function resolveHostUserId(ZoomMtg: ZoomClientGlobal): Promise<number | null> {
   return new Promise((resolve) => {
-    ZoomMtg.getCurrentUser({
-      success: (res: unknown) => {
-        const self = parseCurrentUser(res);
-        if (isHostUser(self) && typeof self?.userId === "number") {
-          resolve(self.userId);
+    ZoomMtg.getAttendeeslist({
+      success: (attendees: unknown) => {
+        const list = parseAttendeeList(attendees);
+        const host = list.find((u) => isHostUser(u));
+        const hostId = normalizeUserId(host?.userId);
+        if (hostId != null) {
+          resolve(hostId);
           return;
         }
 
-        ZoomMtg.getAttendeeslist({
-          success: (attendees: unknown) => {
-            const list = parseAttendeeList(attendees);
-            const host = list.find((u) => isHostUser(u));
-            if (typeof host?.userId === "number") {
-              resolve(host.userId);
-              return;
-            }
-            if (isHostUser(self) && typeof self?.userId === "number") {
-              resolve(self.userId);
+        ZoomMtg.getCurrentUser({
+          success: (res: unknown) => {
+            const self = parseCurrentUser(res);
+            if (isHostUser(self)) {
+              resolve(normalizeUserId(self?.userId));
               return;
             }
             resolve(null);
@@ -147,9 +160,28 @@ function resolveHostUserId(ZoomMtg: ZoomClientGlobal): Promise<number | null> {
           error: () => resolve(null),
         });
       },
-      error: () => resolve(null),
+      error: () => {
+        ZoomMtg.getCurrentUser({
+          success: (res: unknown) => {
+            const self = parseCurrentUser(res);
+            resolve(isHostUser(self) ? normalizeUserId(self?.userId) : null);
+          },
+          error: () => resolve(null),
+        });
+      },
     });
   });
+}
+
+function parseSpotlightIds(res: unknown): number[] {
+  if (Array.isArray(res)) {
+    return res.map(normalizeUserId).filter((id): id is number => id != null);
+  }
+  const nested = (res as { result?: unknown })?.result;
+  if (Array.isArray(nested)) {
+    return nested.map(normalizeUserId).filter((id): id is number => id != null);
+  }
+  return [];
 }
 
 function getSpotlightUserIds(ZoomMtg: ZoomClientGlobal): Promise<number[]> {
@@ -158,28 +190,57 @@ function getSpotlightUserIds(ZoomMtg: ZoomClientGlobal): Promise<number[]> {
       resolve([]);
       return;
     }
+    try {
+      const direct = ZoomMtg.getSpotlightList({});
+      if (Array.isArray(direct)) {
+        resolve(parseSpotlightIds(direct));
+        return;
+      }
+    } catch {
+      /* callback path below */
+    }
     ZoomMtg.getSpotlightList({
-      success: (res: unknown) => {
-        resolve(Array.isArray(res) ? (res as number[]) : []);
-      },
+      success: (res: unknown) => resolve(parseSpotlightIds(res)),
       error: () => resolve([]),
     });
   });
 }
 
-function spotlightUser(ZoomMtg: ZoomClientGlobal, userId: number): Promise<boolean> {
+function spotlightUser(
+  ZoomMtg: ZoomClientGlobal,
+  userId: number,
+  operate: "add" | "replace",
+): Promise<boolean> {
   return new Promise((resolve) => {
     if (!ZoomMtg.operateSpotlight) {
-      console.warn("[synapse-zoom] operateSpotlight unavailable");
       resolve(false);
       return;
     }
     ZoomMtg.operateSpotlight({
       userId,
+      operate,
+      success: () => resolve(true),
+      error: (err: unknown) => {
+        console.warn("[synapse-zoom] operateSpotlight failed", operate, err);
+        resolve(false);
+      },
+    });
+  });
+}
+
+/** Pin is local to this client — host pins self so they see their own video large. */
+function pinUser(ZoomMtg: ZoomClientGlobal, userId: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!ZoomMtg.operatePin) {
+      resolve(false);
+      return;
+    }
+    ZoomMtg.operatePin({
+      userId,
       operate: "replace",
       success: () => resolve(true),
       error: (err: unknown) => {
-        console.warn("[synapse-zoom] operateSpotlight failed", err);
+        console.warn("[synapse-zoom] operatePin failed", err);
         resolve(false);
       },
     });
@@ -194,30 +255,33 @@ function enableFocusMode(ZoomMtg: ZoomClientGlobal): void {
   });
 }
 
-/** Host spotlights themselves so every participant sees host as the main video. */
+/** Spotlight for everyone + pin for host's own screen (2-person meetings use active speaker otherwise). */
 async function enforceHostPrimary(ZoomMtg: ZoomClientGlobal): Promise<void> {
   const hostId = await resolveHostUserId(ZoomMtg);
   if (hostId == null) {
-    console.warn("[synapse-zoom] host userId not found — reconnect Zoom in Host Settings");
+    console.warn("[synapse-zoom] host userId not found");
     return;
   }
 
-  await spotlightUser(ZoomMtg, hostId);
+  await spotlightUser(ZoomMtg, hostId, "add");
+  await spotlightUser(ZoomMtg, hostId, "replace");
+  await pinUser(ZoomMtg, hostId);
+
   const spotlighted = await getSpotlightUserIds(ZoomMtg);
   if (!spotlighted.includes(hostId)) {
-    console.warn("[synapse-zoom] host not in spotlight list after apply", { hostId, spotlighted });
-    await spotlightUser(ZoomMtg, hostId);
+    console.warn("[synapse-zoom] host not spotlighted after apply", { hostId, spotlighted });
+    await spotlightUser(ZoomMtg, hostId, "add");
   }
 }
 
 function setupHostPrimaryVideo(ZoomMtg: ZoomClientGlobal) {
   let hostUserId: number | null = null;
-  let lastApplyMs = 0;
+  let lastRoutineApplyMs = 0;
 
-  const apply = () => {
+  const apply = (urgent = false) => {
     const now = Date.now();
-    if (now - lastApplyMs < 900) return;
-    lastApplyMs = now;
+    if (!urgent && now - lastRoutineApplyMs < 800) return;
+    lastRoutineApplyMs = now;
     void enforceHostPrimary(ZoomMtg).then(async () => {
       if (hostUserId == null) hostUserId = await resolveHostUserId(ZoomMtg);
     });
@@ -225,50 +289,84 @@ function setupHostPrimaryVideo(ZoomMtg: ZoomClientGlobal) {
 
   enableFocusMode(ZoomMtg);
 
-  const retryDelays = [0, 600, 1500, 3000, 6000, 12_000, 20_000];
+  const retryDelays = [0, 400, 1000, 2000, 4000, 8000, 15_000, 25_000];
   for (const delay of retryDelays) {
-    window.setTimeout(apply, delay);
+    window.setTimeout(() => apply(false), delay);
   }
 
-  const interval = window.setInterval(apply, 15_000);
+  const fastInterval = window.setInterval(() => apply(false), 4_000);
+  window.setTimeout(() => window.clearInterval(fastInterval), 120_000);
+  const slowInterval = window.setInterval(() => apply(false), 20_000);
 
-  ZoomMtg.inMeetingServiceListener?.("onUserJoin", apply);
-  ZoomMtg.inMeetingServiceListener?.("onUserUpdate", apply);
+  ZoomMtg.inMeetingServiceListener?.("onUserJoin", () => apply(true));
+  ZoomMtg.inMeetingServiceListener?.("onUserUpdate", () => apply(true));
   ZoomMtg.inMeetingServiceListener?.("onMeetingStatus", (data: unknown) => {
     const status = (data as { status?: number })?.status;
-    if (status === 2) apply();
+    if (status === 2) apply(true);
   });
 
-  /** When a guest becomes active speaker, speaker view puts them large — re-spotlight host. */
   ZoomMtg.inMeetingServiceListener?.("onActiveSpeaker", (data: unknown) => {
-    const speakers = Array.isArray(data) ? (data as Array<{ userId?: number }>) : [];
-    const activeId = speakers[0]?.userId;
+    const speakers = Array.isArray(data) ? (data as Array<{ userId?: number | string }>) : [];
+    const activeId = normalizeUserId(speakers[0]?.userId);
     if (activeId == null) return;
     void resolveHostUserId(ZoomMtg).then((hostId) => {
       hostUserId = hostId;
-      if (hostId != null && activeId !== hostId) apply();
+      if (hostId != null && activeId !== hostId) apply(true);
     });
   });
 
-  /** Full A/V ready is a more reliable hook than join() success alone. */
-  ZoomMtg.inMeetingServiceListener?.("onJoinSpeed", (data: unknown) => {
-    const level = (data as { level?: number })?.level;
-    if (level === 17) apply();
+  ZoomMtg.inMeetingServiceListener?.("onVideoOrder", (data: unknown) => {
+    const order = data as {
+      speakerActiveCurrent?: Array<number | string>;
+      singleActiveCurrent?: Array<number | string>;
+      multiSpeakerMainCurrent?: Array<number | string>;
+    };
+    void resolveHostUserId(ZoomMtg).then((hostId) => {
+      if (hostId == null) return;
+      hostUserId = hostId;
+      const main =
+        normalizeUserId(order.speakerActiveCurrent?.[0]) ??
+        normalizeUserId(order.singleActiveCurrent?.[0]) ??
+        normalizeUserId(order.multiSpeakerMainCurrent?.[0]);
+      if (main != null && main !== hostId) apply(true);
+    });
   });
 
-  window.addEventListener("beforeunload", () => window.clearInterval(interval));
+  ZoomMtg.inMeetingServiceListener?.("onJoinSpeed", (data: unknown) => {
+    const level = (data as { level?: number })?.level;
+    if (level === 17) apply(true);
+  });
+
+  window.addEventListener("beforeunload", () => window.clearInterval(slowInterval));
+}
+
+function whenZoomReady(ZoomMtg: ZoomClientGlobal, run: () => void): void {
+  if (ZoomMtg.i18n?.load && ZoomMtg.i18n?.onLoad) {
+    ZoomMtg.i18n.load("en-US");
+    ZoomMtg.i18n.onLoad(run);
+    return;
+  }
+  run();
+}
+
+function shouldRunHostLayout(ZoomMtg: ZoomClientGlobal, payload: ZoomJoinPayload): Promise<boolean> {
+  if (payload.role === 1) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    ZoomMtg.getCurrentUser({
+      success: (res: unknown) => resolve(isHostUser(parseCurrentUser(res))),
+      error: () => resolve(false),
+    });
+  });
 }
 
 let joinPromise: Promise<void> | null = null;
 
-/** Join via Client View — speaker view; host auto-spotlights for everyone. */
+/** Join via Client View — host spotlights + pins self; focus mode for guests. */
 export async function joinZoomClientView(
   payload: ZoomJoinPayload,
   leaveUrl: string,
 ): Promise<void> {
   if (joinPromise) return joinPromise;
-
-  const isHost = payload.role === 1;
 
   joinPromise = (async () => {
     await leaveZoomMeeting();
@@ -276,38 +374,42 @@ export async function joinZoomClientView(
     const ZoomMtg = await loadZoomClientSdk();
 
     await new Promise<void>((resolve, reject) => {
-      ZoomMtg.preLoadWasm();
-      ZoomMtg.prepareWebSDK();
-      ZoomMtg.init({
-        leaveUrl,
-        patchJsMedia: true,
-        leaveOnPageUnload: true,
-        enableHD: isolated,
-        disableCORP: !isolated,
-        defaultView: "speaker",
-        showMeetingHeader: false,
-        disablePreview: true,
-        disablePictureInPicture: true,
-        disableZoomLogo: true,
-        videoHeader: false,
-        success: () => {
-          ZoomMtg.join({
-            signature: payload.signature,
-            sdkKey: payload.sdkKey,
-            meetingNumber: payload.meetingNumber,
-            passWord: payload.password,
-            userName: payload.userName,
-            userEmail: payload.userEmail,
-            customerKey: payload.customerKey ?? "",
-            zak: payload.zak ?? "",
-            success: () => {
-              if (isHost) setupHostPrimaryVideo(ZoomMtg);
-              resolve();
-            },
-            error: (err: unknown) => reject(err),
-          });
-        },
-        error: (err: unknown) => reject(err),
+      whenZoomReady(ZoomMtg, () => {
+        ZoomMtg.preLoadWasm();
+        ZoomMtg.prepareWebSDK();
+        ZoomMtg.init({
+          leaveUrl,
+          patchJsMedia: true,
+          leaveOnPageUnload: true,
+          enableHD: isolated,
+          disableCORP: !isolated,
+          defaultView: "speaker",
+          showMeetingHeader: false,
+          disablePreview: true,
+          disablePictureInPicture: true,
+          disableZoomLogo: true,
+          videoHeader: false,
+          success: () => {
+            ZoomMtg.join({
+              signature: payload.signature,
+              sdkKey: payload.sdkKey,
+              meetingNumber: payload.meetingNumber,
+              passWord: payload.password,
+              userName: payload.userName,
+              userEmail: payload.userEmail,
+              customerKey: payload.customerKey ?? "",
+              zak: payload.zak ?? "",
+              success: () => {
+                void shouldRunHostLayout(ZoomMtg, payload).then((runHostLayout) => {
+                  if (runHostLayout) setupHostPrimaryVideo(ZoomMtg);
+                });
+                resolve();
+              },
+              error: (err: unknown) => reject(err),
+            });
+          },
+          error: (err: unknown) => reject(err),
+        });
       });
     });
   })();
