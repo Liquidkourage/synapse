@@ -19,6 +19,7 @@ export type ZoomJoinPayload = {
   userName: string;
   userEmail: string;
   eventSlug?: string;
+  customerKey?: string;
   zak?: string | null;
 };
 
@@ -27,6 +28,7 @@ type ZoomClientGlobal = {
   prepareWebSDK: () => void;
   init: (opts: Record<string, unknown>) => void;
   join: (opts: Record<string, unknown>) => void;
+  leaveMeeting: (opts: Record<string, unknown>) => void;
 };
 
 function loadScript(src: string): Promise<void> {
@@ -52,7 +54,6 @@ async function loadVendorScripts() {
 
 let clientPromise: Promise<ZoomClientGlobal> | null = null;
 
-/** Client View — full Zoom UI with gallery view (best for seeing every participant). */
 export function loadZoomClientSdk(): Promise<ZoomClientGlobal> {
   if (!clientPromise) {
     clientPromise = (async () => {
@@ -66,36 +67,87 @@ export function loadZoomClientSdk(): Promise<ZoomClientGlobal> {
   return clientPromise;
 }
 
-/** Join via Client View — gallery shows all participants (host + guests). */
-export function joinZoomClientView(payload: ZoomJoinPayload, leaveUrl: string): Promise<void> {
-  const isolated = window.crossOriginIsolated;
+/** Wait for cross-origin isolation (gallery view requires SharedArrayBuffer). */
+export async function waitForCrossOriginIsolation(maxMs = 8000): Promise<boolean> {
+  if (window.crossOriginIsolated) return true;
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    if (window.crossOriginIsolated) return true;
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+  }
+  return window.crossOriginIsolated;
+}
+
+export function leaveZoomMeeting(): Promise<void> {
   return loadZoomClientSdk().then(
     (ZoomMtg) =>
-      new Promise<void>((resolve, reject) => {
-        ZoomMtg.preLoadWasm();
-        ZoomMtg.prepareWebSDK();
-        ZoomMtg.init({
-          leaveUrl,
-          patchJsMedia: true,
-          enableHD: isolated,
-          disableCORP: !isolated,
-          defaultView: "gallery",
-          showMeetingHeader: false,
-          success: () => {
-            ZoomMtg.join({
-              signature: payload.signature,
-              sdkKey: payload.sdkKey,
-              meetingNumber: payload.meetingNumber,
-              passWord: payload.password,
-              userName: payload.userName,
-              userEmail: payload.userEmail,
-              zak: payload.zak ?? "",
-              success: () => resolve(),
-              error: (err: unknown) => reject(err),
-            });
-          },
-          error: (err: unknown) => reject(err),
-        });
+      new Promise((resolve) => {
+        try {
+          ZoomMtg.leaveMeeting({
+            success: () => resolve(),
+            error: () => resolve(),
+          });
+        } catch {
+          resolve();
+        }
       }),
   );
+}
+
+let joinPromise: Promise<void> | null = null;
+
+/** Join via Client View — gallery when SharedArrayBuffer is available. */
+export async function joinZoomClientView(
+  payload: ZoomJoinPayload,
+  leaveUrl: string,
+): Promise<void> {
+  if (joinPromise) return joinPromise;
+
+  joinPromise = (async () => {
+    await leaveZoomMeeting();
+    const isolated = await waitForCrossOriginIsolation();
+    const ZoomMtg = await loadZoomClientSdk();
+
+    await new Promise<void>((resolve, reject) => {
+      ZoomMtg.preLoadWasm();
+      ZoomMtg.prepareWebSDK();
+      ZoomMtg.init({
+        leaveUrl,
+        patchJsMedia: true,
+        leaveOnPageUnload: true,
+        enableHD: isolated,
+        disableCORP: !isolated,
+        defaultView: isolated ? "gallery" : "multiSpeaker",
+        showMeetingHeader: false,
+        disablePreview: true,
+        success: () => {
+          ZoomMtg.join({
+            signature: payload.signature,
+            sdkKey: payload.sdkKey,
+            meetingNumber: payload.meetingNumber,
+            passWord: payload.password,
+            userName: payload.userName,
+            userEmail: payload.userEmail,
+            customerKey: payload.customerKey ?? "",
+            zak: payload.zak ?? "",
+            success: () => resolve(),
+            error: (err: unknown) => reject(err),
+          });
+        },
+        error: (err: unknown) => reject(err),
+      });
+    });
+  })();
+
+  try {
+    await joinPromise;
+  } catch (e) {
+    joinPromise = null;
+    throw e;
+  }
+}
+
+export function resetZoomJoinState(): Promise<void> {
+  joinPromise = null;
+  return leaveZoomMeeting();
 }

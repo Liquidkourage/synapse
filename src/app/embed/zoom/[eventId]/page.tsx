@@ -1,17 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { joinZoomClientView, type ZoomJoinPayload } from "@/lib/zoom-embedded-cdn";
+import {
+  joinZoomClientView,
+  resetZoomJoinState,
+  type ZoomJoinPayload,
+} from "@/lib/zoom-embedded-cdn";
+
+function tabCustomerKey() {
+  const storageKey = "synapse-zoom-tab-id";
+  try {
+    let id = sessionStorage.getItem(storageKey);
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionStorage.setItem(storageKey, id);
+    }
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
 
 /** Isolated Zoom iframe page — Client View gallery so every participant is visible. */
 export default function ZoomEmbedPage() {
   const params = useParams<{ eventId: string }>();
   const eventId = params.eventId;
   const [error, setError] = useState<string | null>(null);
+  const joinedRef = useRef(false);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || joinedRef.current) return;
 
     let disposed = false;
 
@@ -26,6 +45,8 @@ export default function ZoomEmbedPage() {
         }
         if (disposed) return;
 
+        joinedRef.current = true;
+
         const payload: ZoomJoinPayload = {
           sdkKey: data.sdkKey,
           signature: data.signature,
@@ -34,6 +55,7 @@ export default function ZoomEmbedPage() {
           userName: data.userName,
           userEmail: data.userEmail,
           eventSlug: data.eventSlug,
+          customerKey: tabCustomerKey(),
           zak: data.zak,
         };
 
@@ -45,6 +67,7 @@ export default function ZoomEmbedPage() {
 
         if (!disposed) setError(null);
       } catch (e) {
+        joinedRef.current = false;
         if (!disposed) {
           setError(e instanceof Error ? e.message : "Zoom join failed");
         }
@@ -55,6 +78,8 @@ export default function ZoomEmbedPage() {
 
     return () => {
       disposed = true;
+      joinedRef.current = false;
+      void resetZoomJoinState();
     };
   }, [eventId]);
 
