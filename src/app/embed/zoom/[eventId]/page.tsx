@@ -39,7 +39,7 @@ export default function ZoomEmbedPage() {
         const res = await fetch(`/api/zoom/join?eventId=${encodeURIComponent(eventId)}`, {
           credentials: "include",
         });
-        const data = (await res.json()) as ZoomJoinPayload & { error?: string };
+        const data = (await res.json()) as ZoomJoinPayload & { error?: string; role?: 0 | 1 };
         if (!res.ok || !data.signature) {
           throw new Error(data.error ?? "Could not join Zoom meeting");
         }
@@ -56,6 +56,7 @@ export default function ZoomEmbedPage() {
           userEmail: data.userEmail,
           eventSlug: data.eventSlug,
           customerKey: tabCustomerKey(),
+          role: data.role,
           zak: data.zak,
         };
 

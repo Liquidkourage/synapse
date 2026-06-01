@@ -20,7 +20,13 @@ export type ZoomJoinPayload = {
   userEmail: string;
   eventSlug?: string;
   customerKey?: string;
+  role?: 0 | 1;
   zak?: string | null;
+};
+
+type ZoomCurrentUser = {
+  userId?: number;
+  isHost?: boolean;
 };
 
 type ZoomClientGlobal = {
@@ -29,6 +35,10 @@ type ZoomClientGlobal = {
   init: (opts: Record<string, unknown>) => void;
   join: (opts: Record<string, unknown>) => void;
   leaveMeeting: (opts: Record<string, unknown>) => void;
+  getCurrentUser: (opts: Record<string, unknown>) => void;
+  getAttendeeslist: (opts: Record<string, unknown>) => void;
+  operateSpotlight?: (opts: Record<string, unknown>) => void;
+  inMeetingServiceListener?: (event: string, handler: () => void) => void;
 };
 
 function loadScript(src: string): Promise<void> {
@@ -67,7 +77,6 @@ export function loadZoomClientSdk(): Promise<ZoomClientGlobal> {
   return clientPromise;
 }
 
-/** Wait for cross-origin isolation (gallery view requires SharedArrayBuffer). */
 export async function waitForCrossOriginIsolation(maxMs = 8000): Promise<boolean> {
   if (window.crossOriginIsolated) return true;
   const start = Date.now();
@@ -94,14 +103,85 @@ export function leaveZoomMeeting(): Promise<void> {
   );
 }
 
+function readUserId(res: unknown): number | null {
+  const root = res as { result?: { currentUser?: ZoomCurrentUser } };
+  const id = root.result?.currentUser?.userId;
+  return typeof id === "number" ? id : null;
+}
+
+function readHostUserIdFromAttendees(res: unknown): number | null {
+  const root = res as {
+    result?: { attendeeList?: Array<{ userId?: number; isHost?: boolean; bHost?: boolean }> };
+  };
+  const list = root.result?.attendeeList;
+  if (!Array.isArray(list)) return null;
+  const host = list.find((u) => u.isHost || u.bHost);
+  return typeof host?.userId === "number" ? host.userId : null;
+}
+
+function spotlightUser(ZoomMtg: ZoomClientGlobal, userId: number): Promise<void> {
+  return new Promise((resolve) => {
+    if (!ZoomMtg.operateSpotlight) {
+      resolve();
+      return;
+    }
+    ZoomMtg.operateSpotlight({
+      userId,
+      operate: "add",
+      success: () => resolve(),
+      error: () => resolve(),
+    });
+  });
+}
+
+/** Host spotlights themselves so every participant sees host as the main video. */
+function spotlightHost(ZoomMtg: ZoomClientGlobal): Promise<void> {
+  return new Promise((resolve) => {
+    ZoomMtg.getCurrentUser({
+      success: async (res: unknown) => {
+        const selfId = readUserId(res);
+        if (selfId != null) {
+          await spotlightUser(ZoomMtg, selfId);
+          resolve();
+          return;
+        }
+        ZoomMtg.getAttendeeslist({
+          success: async (attendees: unknown) => {
+            const hostId = readHostUserIdFromAttendees(attendees);
+            if (hostId != null) await spotlightUser(ZoomMtg, hostId);
+            resolve();
+          },
+          error: () => resolve(),
+        });
+      },
+      error: () => resolve(),
+    });
+  });
+}
+
+function setupHostSpotlight(ZoomMtg: ZoomClientGlobal) {
+  const apply = () => {
+    void spotlightHost(ZoomMtg);
+  };
+
+  apply();
+  window.setTimeout(apply, 800);
+  window.setTimeout(apply, 2500);
+
+  ZoomMtg.inMeetingServiceListener?.("onUserJoin", apply);
+  ZoomMtg.inMeetingServiceListener?.("onUserUpdate", apply);
+}
+
 let joinPromise: Promise<void> | null = null;
 
-/** Join via Client View — gallery when SharedArrayBuffer is available. */
+/** Join via Client View — speaker view; host auto-spotlights for everyone. */
 export async function joinZoomClientView(
   payload: ZoomJoinPayload,
   leaveUrl: string,
 ): Promise<void> {
   if (joinPromise) return joinPromise;
+
+  const isHost = payload.role === 1;
 
   joinPromise = (async () => {
     await leaveZoomMeeting();
@@ -117,7 +197,7 @@ export async function joinZoomClientView(
         leaveOnPageUnload: true,
         enableHD: isolated,
         disableCORP: !isolated,
-        defaultView: isolated ? "gallery" : "multiSpeaker",
+        defaultView: "speaker",
         showMeetingHeader: false,
         disablePreview: true,
         success: () => {
@@ -130,7 +210,10 @@ export async function joinZoomClientView(
             userEmail: payload.userEmail,
             customerKey: payload.customerKey ?? "",
             zak: payload.zak ?? "",
-            success: () => resolve(),
+            success: () => {
+              if (isHost) setupHostSpotlight(ZoomMtg);
+              resolve();
+            },
             error: (err: unknown) => reject(err),
           });
         },
