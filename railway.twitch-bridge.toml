@@ -1,0 +1,10 @@
+# Railway config for the Twitch chat bridge service (second service, same repo).
+# In the bridge service: Settings → Config-as-code → set path to railway.twitch-bridge.toml
+# Do NOT use the root railway.toml / Dockerfile on this service — that runs a full Next build.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.twitch-bridge"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"

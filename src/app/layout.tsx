@@ -20,6 +20,9 @@ export const metadata: Metadata = {
     "Discover live and on-demand trivia programming. Synapse is the front door — your game runs wherever you host it.",
 };
 
+/** App reads from the DB on most routes — skip static page data collection at build time. */
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({
   children,
 }: Readonly<{

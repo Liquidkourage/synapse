@@ -12,26 +12,40 @@ function isPrismaGenerateProcess(): boolean {
   return process.argv.includes("generate") && process.argv.some((arg) => arg.includes("prisma"));
 }
 
+/** Next.js loads server modules during `next build`; DB is not required until runtime. */
+function isNextBuildProcess(): boolean {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return true;
+  }
+  const argv = process.argv.join(" ");
+  return argv.includes("next") && argv.includes("build");
+}
+
+function buildTimeDatabasePlaceholder(): string {
+  return PRISMA_GENERATE_PLACEHOLDER;
+}
+
 export function resolveDatabaseUrl(): string {
   const raw = process.env.DATABASE_URL?.trim();
+  const buildTime = isPrismaGenerateProcess() || isNextBuildProcess();
 
   if (raw) {
     if (raw.startsWith("postgresql:") || raw.startsWith("postgres:")) {
       return raw;
     }
-    if (raw.startsWith("file:") && isPrismaGenerateProcess()) {
+    if (raw.startsWith("file:") && buildTime) {
       console.warn(
-        "[synapse] DATABASE_URL is SQLite; `prisma generate` is using a placeholder. Switch to postgresql:// for the app and `db push`.",
+        "[synapse] DATABASE_URL is SQLite; build is using a placeholder. Set postgresql:// for runtime.",
       );
-      return PRISMA_GENERATE_PLACEHOLDER;
+      return buildTimeDatabasePlaceholder();
     }
     throw new Error(
       "DATABASE_URL must be a PostgreSQL URL (postgresql:// or postgres://). SQLite file URLs are not supported.",
     );
   }
 
-  if (isPrismaGenerateProcess()) {
-    return PRISMA_GENERATE_PLACEHOLDER;
+  if (buildTime) {
+    return buildTimeDatabasePlaceholder();
   }
 
   throw new Error(
