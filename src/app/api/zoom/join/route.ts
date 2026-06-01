@@ -61,5 +61,6 @@ export async function GET(req: Request) {
     role,
     zak,
     breakoutsEnabled: event.broadcastBreakoutsEnabled,
+    eventSlug: event.slug,
   });
 }

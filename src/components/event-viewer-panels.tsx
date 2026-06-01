@@ -174,6 +174,7 @@ export function EventViewerPanels({
               hasPrimary={hasPrimary}
               hasSecondary={hasSecondary}
               preferLargeVideoPanel={!!broadcastZoomEventId}
+              disableVideoPanelZoom={!!broadcastZoomEventId}
               compact={compact}
               hostDefaultLayout={hostViewerLayout}
               eventId={eventId ?? null}

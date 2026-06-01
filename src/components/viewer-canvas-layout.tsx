@@ -134,10 +134,15 @@ function saveStoredBundle(key: string, geoms: Stored, zoom: PanelZoomState) {
   }
 }
 
+function forceVideoPanelZoom(state: PanelZoomState, lockVideo: boolean): PanelZoomState {
+  if (!lockVideo || state.video === 1) return state;
+  return { ...state, video: 1 };
+}
+
 function zoomVideoTopHeight(safeH: number, margin: number): number {
   const minBottom = VIEWER_PANEL_MIN_H + margin;
   const maxTop = safeH - minBottom - margin * 2;
-  const target = Math.max(411, Math.round(safeH * 0.52));
+  const target = Math.max(480, Math.round(safeH * 0.65));
   return Math.min(maxTop, Math.max(VIEWER_PANEL_MIN_H, target));
 }
 
@@ -224,13 +229,24 @@ function mergeHostPixelsWithDefaults(
   return clampStored(out, w, h, hasVideo, hasPrimary, hasSecondary);
 }
 
-function PanelToolbar({ label, zoom, onZoom }: { label: string; zoom: number; onZoom: (z: number) => void }) {
+function PanelToolbar({
+  label,
+  zoom,
+  onZoom,
+  showZoomControls = true,
+}: {
+  label: string;
+  zoom: number;
+  onZoom: (z: number) => void;
+  showZoomControls?: boolean;
+}) {
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 bg-zinc-950/90 px-2 py-1.5">
       <span className="synapse-panel-drag flex min-h-[2rem] min-w-0 flex-1 cursor-grab touch-none select-none items-center text-xs font-medium text-zinc-400 active:cursor-grabbing">
         {label}
       </span>
-      <div className="flex items-center gap-1">
+      {showZoomControls ? (
+        <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={() => onZoom(clampPanelZoom(zoom - 0.1))}
@@ -255,7 +271,8 @@ function PanelToolbar({ label, zoom, onZoom }: { label: string; zoom: number; on
         >
           Reset
         </button>
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -374,6 +391,7 @@ export function ViewerCanvasLayout({
   canPublishViewerLayout = false,
   hasMobileChatTab = false,
   preferLargeVideoPanel = false,
+  disableVideoPanelZoom = false,
 }: {
   storageKey: string;
   video?: React.ReactNode;
@@ -394,6 +412,7 @@ export function ViewerCanvasLayout({
   hasMobileChatTab?: boolean;
   /** Zoom events: default taller video panel for gallery view. */
   preferLargeVideoPanel?: boolean;
+  disableVideoPanelZoom?: boolean;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const layoutInitRef = useRef(false);
@@ -449,13 +468,13 @@ export function ViewerCanvasLayout({
 
   const applyLayout = useCallback(
     (next: Stored, zoomOverride?: PanelZoomState) => {
-      const z = zoomOverride ?? zoomRef.current;
+      const z = forceVideoPanelZoom(zoomOverride ?? zoomRef.current, disableVideoPanelZoom);
       saveStoredBundle(storageKey, next, z);
       setGeoms(next);
-      if (zoomOverride) setZoom(zoomOverride);
+      if (zoomOverride) setZoom(z);
       maxZRef.current = Math.max(1, ...Object.values(next).map((g) => g?.z ?? 1));
     },
-    [storageKey],
+    [storageKey, disableVideoPanelZoom],
   );
 
   useEffect(() => {
@@ -481,7 +500,10 @@ export function ViewerCanvasLayout({
             hasSecondary,
             preferLargeVideoPanel,
           );
-          nextZoom = mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary);
+          nextZoom = forceVideoPanelZoom(
+            mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary),
+            disableVideoPanelZoom,
+          );
         } else if (hostLayoutRef.current) {
           const hostPx = denormalizeV1ToPixelPanels(
             hostLayoutRef.current.panels,
@@ -500,11 +522,14 @@ export function ViewerCanvasLayout({
             hasSecondary,
             preferLargeVideoPanel,
           );
-          nextZoom = mergePanelZoomFromPartial(
-            panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
-            hasVideo,
-            hasPrimary,
-            hasSecondary,
+          nextZoom = forceVideoPanelZoom(
+            mergePanelZoomFromPartial(
+              panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
+              hasVideo,
+              hasPrimary,
+              hasSecondary,
+            ),
+            disableVideoPanelZoom,
           );
         } else {
           merged = mergeSavedWithDefaults(
@@ -516,7 +541,10 @@ export function ViewerCanvasLayout({
             hasSecondary,
             preferLargeVideoPanel,
           );
-          nextZoom = mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary);
+          nextZoom = forceVideoPanelZoom(
+            mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary),
+            disableVideoPanelZoom,
+          );
         }
         applyLayout(merged, nextZoom);
         layoutInitRef.current = true;
@@ -541,11 +569,14 @@ export function ViewerCanvasLayout({
           hasSecondary,
           preferLargeVideoPanel,
         );
-        const nextZoom = mergePanelZoomFromPartial(
-          panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
-          hasVideo,
-          hasPrimary,
-          hasSecondary,
+        const nextZoom = forceVideoPanelZoom(
+          mergePanelZoomFromPartial(
+            panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
+            hasVideo,
+            hasPrimary,
+            hasSecondary,
+          ),
+          disableVideoPanelZoom,
         );
         setGeoms((prev) => {
           const before = JSON.stringify(prev);
@@ -578,7 +609,7 @@ export function ViewerCanvasLayout({
     run(r.width, r.height);
 
     return () => ro.disconnect();
-  }, [mounted, storageKey, hostLayoutSig, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel, applyLayout]);
+  }, [mounted, storageKey, hostLayoutSig, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel, disableVideoPanelZoom, applyLayout]);
 
   const markUserCustomized = useCallback(() => {
     setUserLocked(storageKey);
@@ -698,17 +729,20 @@ export function ViewerCanvasLayout({
         preferLargeVideoPanel,
       );
     }
-    const nextZoom = hostLayoutRef.current
-      ? mergePanelZoomFromPartial(
-          panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
-          hasVideo,
-          hasPrimary,
-          hasSecondary,
-        )
-      : defaultPanelZoomState();
+    const nextZoom = forceVideoPanelZoom(
+      hostLayoutRef.current
+        ? mergePanelZoomFromPartial(
+            panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
+            hasVideo,
+            hasPrimary,
+            hasSecondary,
+          )
+        : defaultPanelZoomState(),
+      disableVideoPanelZoom,
+    );
     applyLayout(merged, nextZoom);
     layoutInitRef.current = true;
-  }, [storageKey, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel, applyLayout]);
+  }, [storageKey, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel, disableVideoPanelZoom, applyLayout]);
 
   const onDrag = useCallback(
     (id: PanelId) => (_e: unknown, d: { x: number; y: number }) => {
@@ -791,6 +825,7 @@ export function ViewerCanvasLayout({
     content: React.ReactNode,
     zm: number,
     onZoom: (z: number) => void,
+    showZoomControls = true,
   ) => {
     const g = geoms[id];
     if (!g) return null;
@@ -819,7 +854,7 @@ export function ViewerCanvasLayout({
           className="flex h-full min-h-0 flex-col"
           onPointerDownCapture={() => bringToFront(id)}
         >
-          <PanelToolbar label={label} zoom={zm} onZoom={onZoom} />
+          <PanelToolbar label={label} zoom={zm} onZoom={onZoom} showZoomControls={showZoomControls} />
           <ZoomFrame zoom={zm} blockPointerEvents={canvasPointerLock}>
             {content}
           </ZoomFrame>
@@ -828,13 +863,17 @@ export function ViewerCanvasLayout({
     );
   };
 
-  const setVideoZoom = useCallback((z: number) => {
-    setZoom((s) => {
-      const next = { ...s, video: clampPanelZoom(z) };
-      queueMicrotask(() => saveStoredBundle(storageKey, geomsRef.current, next));
-      return next;
-    });
-  }, [storageKey]);
+  const setVideoZoom = useCallback(
+    (z: number) => {
+      if (disableVideoPanelZoom) return;
+      setZoom((s) => {
+        const next = { ...s, video: clampPanelZoom(z) };
+        queueMicrotask(() => saveStoredBundle(storageKey, geomsRef.current, next));
+        return next;
+      });
+    },
+    [storageKey, disableVideoPanelZoom],
+  );
 
   const setPrimaryZoom = useCallback((z: number) => {
     setZoom((s) => {
@@ -956,7 +995,8 @@ export function ViewerCanvasLayout({
             : "rounded-2xl border border-zinc-800/90"
         }`}
       >
-        {hasVideo && renderPanel("video", videoLabel, video, zoom.video, setVideoZoom)}
+        {hasVideo &&
+          renderPanel("video", videoLabel, video, zoom.video, setVideoZoom, !disableVideoPanelZoom)}
         {hasPrimary && renderPanel("primary", primaryLabel, primary, zoom.primary, setPrimaryZoom)}
         {hasSecondary && renderPanel("secondary", secondaryLabel, secondary, zoom.secondary, setSecondaryZoom)}
       </div>
