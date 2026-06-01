@@ -112,7 +112,11 @@ export function EventViewerPanels({
 
   const videoSlot =
     hasVideo && broadcastZoomEventId ? (
-      <ZoomMeetingEmbed eventId={broadcastZoomEventId} fill />
+      <ZoomMeetingEmbed
+        eventId={broadcastZoomEventId}
+        fill
+        showHostOpenTab={broadcastViewerIsHost}
+      />
     ) : hasVideo && hasBreakoutDual ? (
       <BreakoutDualVideo
         stageSrc={broadcastStageIframeSrc}

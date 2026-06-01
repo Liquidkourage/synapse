@@ -2,21 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { loadZoomEmbeddedSdk } from "@/lib/zoom-embedded-cdn";
+import {
+  joinZoomClientView,
+  joinZoomComponentView,
+  type ZoomJoinPayload,
+} from "@/lib/zoom-embedded-cdn";
 
-type JoinPayload = {
-  sdkKey: string;
-  signature: string;
-  meetingNumber: string;
-  password: string;
-  userName: string;
-  userEmail: string;
-  role: number;
-  zak?: string | null;
-  error?: string;
-};
-
-/** Isolated Zoom embed page (CDN SDK + React 18) — loaded in iframe from event stage. */
+/** Isolated Zoom page — Client View full screen, or Component View inside iframe. */
 export default function ZoomEmbedPage() {
   const params = useParams<{ eventId: string }>();
   const eventId = params.eventId;
@@ -28,6 +20,7 @@ export default function ZoomEmbedPage() {
     if (!eventId) return;
 
     let disposed = false;
+    const inIframe = window.self !== window.top;
     const root = rootRef.current;
 
     async function run() {
@@ -35,31 +28,29 @@ export default function ZoomEmbedPage() {
         const res = await fetch(`/api/zoom/join?eventId=${encodeURIComponent(eventId)}`, {
           credentials: "include",
         });
-        const data = (await res.json()) as JoinPayload;
+        const data = (await res.json()) as ZoomJoinPayload & { error?: string };
         if (!res.ok || !data.signature) {
           throw new Error(data.error ?? "Could not join Zoom meeting");
         }
-        if (disposed || !root) return;
+        if (disposed) return;
 
-        const ZoomMtgEmbedded = await loadZoomEmbeddedSdk();
-        const client = ZoomMtgEmbedded.createClient();
-
-        await client.init({
-          zoomAppRoot: root,
-          language: "en-US",
-          patchJsMedia: true,
-        });
-
-        await client.join({
-          signature: data.signature,
+        const payload: ZoomJoinPayload = {
           sdkKey: data.sdkKey,
+          signature: data.signature,
           meetingNumber: data.meetingNumber,
           password: data.password,
           userName: data.userName,
           userEmail: data.userEmail,
-          tk: "",
-          zak: data.zak ?? "",
-        });
+          zak: data.zak,
+        };
+
+        if (inIframe) {
+          if (!root) return;
+          await joinZoomComponentView(root, payload);
+        } else {
+          const leaveUrl = `${window.location.origin}/host/events`;
+          await joinZoomClientView(payload, leaveUrl);
+        }
 
         if (!disposed) setLoading(false);
       } catch (e) {
