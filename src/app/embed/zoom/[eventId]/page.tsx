@@ -6,6 +6,7 @@ import {
   attachZoomVideoResizeListeners,
   joinZoomClientView,
   joinZoomComponentView,
+  updateZoomComponentVideoSize,
   type ZoomEmbeddedClient,
   type ZoomJoinPayload,
 } from "@/lib/zoom-embedded-cdn";
@@ -42,12 +43,6 @@ export default function ZoomEmbedPage() {
     const inIframe = window.self !== window.top;
     const root = rootRef.current;
     let resizeObserver: ResizeObserver | null = null;
-
-    const syncFromRoot = () => {
-      if (!clientRef.current || !rootRef.current) return;
-      const { width, height } = readRootSize(rootRef.current);
-      updateZoomComponentVideoSize(clientRef.current, width, height);
-    };
 
     const onParentResize = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
