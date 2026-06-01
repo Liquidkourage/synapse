@@ -5,6 +5,7 @@ import { ZoomConnectButton } from "@/components/zoom-connect-button";
 import { isHostOrAbove } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { getZoomOAuthConfig } from "@/lib/zoom-config";
+import { fetchZoomHostZak, zoomZakErrorMessage } from "@/lib/zoom-meetings";
 
 export default async function HostZoomSettingsPage({
   searchParams,
@@ -29,6 +30,7 @@ export default async function HostZoomSettingsPage({
   });
 
   const isConnected = !!user?.zoomAccessToken;
+  const zakCheck = isConnected ? await fetchZoomHostZak(session.user.id) : null;
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
@@ -47,6 +49,13 @@ export default async function HostZoomSettingsPage({
       {connected ? (
         <p className="rounded-xl border border-emerald-500/30 bg-emerald-950/25 px-4 py-3 text-sm text-emerald-200/90">
           Zoom connected successfully.
+          {zakCheck?.ok ? " Host join (ZAK) is ready." : null}
+        </p>
+      ) : null}
+
+      {isConnected && zakCheck && !zakCheck.ok ? (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/25 px-4 py-3 text-sm text-amber-200/90">
+          {zoomZakErrorMessage(zakCheck)}
         </p>
       ) : null}
 
@@ -76,6 +85,19 @@ export default async function HostZoomSettingsPage({
       <section className="space-y-2 text-sm text-zinc-500">
         <h2 className="font-medium text-zinc-300">Breakouts checklist</h2>
         <ul className="list-disc space-y-1 pl-5">
+          <li>
+            In{" "}
+            <a
+              href="https://marketplace.zoom.us/user/build"
+              className="text-violet-400 hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Zoom Marketplace → your app → Scopes
+            </a>
+            , enable <code className="text-zinc-400">user:read:zak</code> (required to host from Synapse), then
+            disconnect and reconnect here.
+          </li>
           <li>In Zoom web portal → Settings → Meeting, enable Breakout room.</li>
           <li>Enable &quot;Broadcast voice to breakout rooms&quot; (Zoom 5.12+).</li>
           <li>On events, choose <strong className="text-zinc-400">Zoom (your account)</strong> and Meeting with breakout rooms.</li>

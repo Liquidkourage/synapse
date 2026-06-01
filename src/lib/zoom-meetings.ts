@@ -27,19 +27,64 @@ function formatZoomStartTime(iso: Date, timeZone: string): string {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
-export async function fetchZoomHostZak(hostUserId: string): Promise<string | null> {
-  const token = await getZoomAccessTokenForUser(hostUserId);
-  if (!token) return null;
+export type FetchZoomZakResult =
+  | { ok: true; token: string }
+  | { ok: false; reason: "not_connected" | "zak_denied" | "zak_failed"; detail?: string };
 
-  const res = await fetch("https://api.zoom.us/v2/users/me/token?type=zak", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    console.warn("[zoom-meetings] ZAK fetch failed", res.status, await res.text());
-    return null;
+export function zoomZakErrorMessage(result: Extract<FetchZoomZakResult, { ok: false }>): string {
+  switch (result.reason) {
+    case "not_connected":
+      return "Connect your Zoom account in Host Settings → Zoom, then reload.";
+    case "zak_denied":
+      return (
+        "Zoom is connected but Synapse cannot obtain a host token (ZAK). " +
+        "In the Zoom Marketplace app for this site, enable the user:read:zak scope, save the app, " +
+        "then use Disconnect and Connect again on this page."
+      );
+    default:
+      return "Could not obtain a Zoom host token. Try disconnecting and reconnecting Zoom, then reload.";
   }
-  const data = (await res.json()) as { token?: string };
-  return data.token ?? null;
+}
+
+export async function fetchZoomHostZak(hostUserId: string): Promise<FetchZoomZakResult> {
+  const token = await getZoomAccessTokenForUser(hostUserId);
+  if (!token) {
+    return { ok: false, reason: "not_connected" };
+  }
+
+  const endpoints = [
+    "https://api.zoom.us/v2/users/me/token?type=zak",
+    "https://api.zoom.us/v2/users/me/zak",
+  ] as const;
+
+  let lastDetail: string | undefined;
+
+  for (const url of endpoints) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = await res.text();
+
+    if (res.ok) {
+      try {
+        const data = JSON.parse(body) as { token?: string };
+        const zak = data.token?.trim();
+        if (zak) return { ok: true, token: zak };
+      } catch {
+        lastDetail = body.slice(0, 200);
+      }
+      continue;
+    }
+
+    lastDetail = body.slice(0, 300);
+    console.warn("[zoom-meetings] ZAK fetch failed", res.status, url, lastDetail);
+
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, reason: "zak_denied", detail: lastDetail };
+    }
+  }
+
+  return { ok: false, reason: "zak_failed", detail: lastDetail };
 }
 
 /**

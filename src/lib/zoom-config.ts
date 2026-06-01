@@ -29,8 +29,10 @@ export function getZoomMeetingSdkConfig() {
   };
 }
 
+/** Must match scopes enabled on the Zoom Marketplace app. `user:read:zak` is required for host join (ZAK). */
 export const ZOOM_OAUTH_SCOPES = [
   "user:read:user",
+  "user:read:zak",
   "meeting:write:meeting",
   "meeting:update:meeting",
   "meeting:read:meeting",

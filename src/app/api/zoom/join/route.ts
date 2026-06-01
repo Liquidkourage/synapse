@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { prisma } from "@/lib/prisma";
 import { createZoomMeetingSdkSignature } from "@/lib/zoom-sdk-signature";
-import { fetchZoomHostZak, isZoomNativeEvent } from "@/lib/zoom-meetings";
+import { fetchZoomHostZak, isZoomNativeEvent, zoomZakErrorMessage } from "@/lib/zoom-meetings";
 import { getZoomMeetingSdkConfig } from "@/lib/zoom-config";
 
 export async function GET(req: Request) {
@@ -45,16 +45,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Could not create meeting signature" }, { status: 503 });
   }
 
-  const zak = isHost ? await fetchZoomHostZak(event.hostId) : null;
-  if (isHost && !zak) {
-    return NextResponse.json(
-      {
-        error:
-          "Host could not join as meeting host. Open Host Settings → Zoom and reconnect your Zoom account, then reload this page.",
-      },
-      { status: 503 },
-    );
+  const zakResult = isHost ? await fetchZoomHostZak(event.hostId) : null;
+  if (isHost && zakResult && !zakResult.ok) {
+    return NextResponse.json({ error: zoomZakErrorMessage(zakResult) }, { status: 503 });
   }
+  const zak = zakResult?.ok ? zakResult.token : null;
   const display =
     session?.user?.name?.trim() ||
     session?.user?.email?.trim() ||
