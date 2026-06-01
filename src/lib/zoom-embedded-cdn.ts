@@ -3,6 +3,9 @@ export const ZOOM_SDK_VERSION = "6.0.2";
 
 const version = ZOOM_SDK_VERSION;
 
+/** Component-view toolbar + chrome below the video canvas. */
+export const ZOOM_TOOLBAR_RESERVE_PX = 88;
+
 const VENDOR_SCRIPTS = [
   `https://source.zoom.us/${version}/lib/vendor/react.min.js`,
   `https://source.zoom.us/${version}/lib/vendor/react-dom.min.js`,
@@ -30,6 +33,7 @@ export type ZoomEmbeddedClient = {
   join: (opts: Record<string, unknown>) => Promise<void>;
   updateVideoOptions?: (opts: Record<string, unknown>) => void;
   setViewType?: (viewType: string) => unknown;
+  on?: (event: string, handler: () => void) => void;
 };
 
 const GALLERY_MIN_WIDTH = 720;
@@ -95,13 +99,37 @@ export function loadZoomClientSdk(): Promise<ZoomClientGlobal> {
   return clientPromise;
 }
 
-export function galleryViewSizes(width: number, height: number) {
+/** Video canvas size — excludes Zoom's bottom toolbar so tiles fill the visible area. */
+export function measureZoomVideoArea(
+  width: number,
+  height: number,
+  toolbarReserve = ZOOM_TOOLBAR_RESERVE_PX,
+) {
   return {
-    default: {
-      width: Math.max(1, Math.round(width)),
-      height: Math.max(1, Math.round(height)),
-    },
+    width: Math.max(1, Math.round(width)),
+    height: Math.max(1, Math.round(height - toolbarReserve)),
   };
+}
+
+export function galleryViewSizes(width: number, height: number) {
+  const area = measureZoomVideoArea(width, height);
+  return { default: area };
+}
+
+function applyGalleryIfReady(client: ZoomEmbeddedClient, width: number, height: number) {
+  const area = measureZoomVideoArea(width, height);
+  client.updateVideoOptions?.({
+    viewSizes: galleryViewSizes(width, height),
+  });
+  if (
+    window.crossOriginIsolated &&
+    area.width >= GALLERY_MIN_WIDTH &&
+    area.height >= GALLERY_MIN_HEIGHT
+  ) {
+    client.setViewType?.("gallery");
+  } else {
+    client.setViewType?.("speaker");
+  }
 }
 
 export function updateZoomComponentVideoSize(
@@ -109,16 +137,24 @@ export function updateZoomComponentVideoSize(
   width: number,
   height: number,
 ) {
-  client.updateVideoOptions?.({
-    viewSizes: galleryViewSizes(width, height),
-  });
-  if (
-    window.crossOriginIsolated &&
-    width >= GALLERY_MIN_WIDTH &&
-    height >= GALLERY_MIN_HEIGHT
-  ) {
-    client.setViewType?.("gallery");
-  }
+  applyGalleryIfReady(client, width, height);
+}
+
+export function attachZoomVideoResizeListeners(
+  client: ZoomEmbeddedClient,
+  getSize: () => { width: number; height: number },
+) {
+  const sync = () => {
+    const { width, height } = getSize();
+    if (width < 1 || height < 1) return;
+    applyGalleryIfReady(client, width, height);
+  };
+
+  client.on?.("user-added", sync);
+  client.on?.("user-updated", sync);
+  client.on?.("user-removed", sync);
+
+  return sync;
 }
 
 export function joinZoomClientView(payload: ZoomJoinPayload, leaveUrl: string): Promise<void> {
@@ -168,7 +204,7 @@ export async function joinZoomComponentView(
       meetingInfo: [],
       video: {
         isResizable: true,
-        defaultViewType: "gallery",
+        defaultViewType: isolated ? "gallery" : "speaker",
         viewSizes: galleryViewSizes(width, height),
       },
     },
@@ -185,9 +221,6 @@ export async function joinZoomComponentView(
     zak: payload.zak ?? "",
   });
 
-  if (isolated && width >= GALLERY_MIN_WIDTH && height >= GALLERY_MIN_HEIGHT) {
-    client.setViewType?.("gallery");
-  }
-
+  applyGalleryIfReady(client, width, height);
   return client;
 }
