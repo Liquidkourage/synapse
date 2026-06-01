@@ -8,6 +8,11 @@ import { isStagePath } from "@/lib/stage-path";
 
 export function SiteChrome({ session, children }: { session: Session | null; children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
+
+  if (pathname.startsWith("/embed/")) {
+    return <>{children}</>;
+  }
+
   const stage = isStagePath(pathname);
 
   const headerInner =
