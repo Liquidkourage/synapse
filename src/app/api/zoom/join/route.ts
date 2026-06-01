@@ -46,6 +46,15 @@ export async function GET(req: Request) {
   }
 
   const zak = isHost ? await fetchZoomHostZak(event.hostId) : null;
+  if (isHost && !zak) {
+    return NextResponse.json(
+      {
+        error:
+          "Host could not join as meeting host. Open Host Settings → Zoom and reconnect your Zoom account, then reload this page.",
+      },
+      { status: 503 },
+    );
+  }
   const display =
     session?.user?.name?.trim() ||
     session?.user?.email?.trim() ||
