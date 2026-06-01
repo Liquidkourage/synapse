@@ -45,6 +45,7 @@ type ZoomClientGlobal = {
   getAttendeeslist: (opts: Record<string, unknown>) => void;
   operateSpotlight?: (opts: Record<string, unknown>) => void;
   operatePin?: (opts: Record<string, unknown>) => void;
+  getPinList?: (opts: Record<string, unknown>) => number[] | void;
   inMeetingServiceListener?: (event: string, handler: (...args: unknown[]) => void) => void;
   i18n?: ZoomI18n;
 };
@@ -168,15 +169,54 @@ function isHostClient(ZoomMtg: ZoomClientGlobal, payload: ZoomJoinPayload): Prom
   });
 }
 
-/** Pin is per-device — every client pins the host so host is large and guest is small. */
-function pinHostOnThisDevice(ZoomMtg: ZoomClientGlobal, hostId: number): Promise<void> {
+function parseIdList(res: unknown): number[] {
+  if (Array.isArray(res)) {
+    return res.map(normalizeUserId).filter((id): id is number => id != null);
+  }
+  const nested = (res as { result?: unknown })?.result;
+  if (Array.isArray(nested)) {
+    return nested.map(normalizeUserId).filter((id): id is number => id != null);
+  }
+  return [];
+}
+
+function clearLocalPins(ZoomMtg: ZoomClientGlobal): Promise<void> {
+  return new Promise((resolve) => {
+    if (!ZoomMtg.operatePin || !ZoomMtg.getPinList) {
+      resolve();
+      return;
+    }
+    const removeIds = (ids: number[]) => {
+      for (const id of ids) {
+        ZoomMtg.operatePin?.({ userId: id, operate: "remove" });
+      }
+      resolve();
+    };
+    try {
+      const direct = ZoomMtg.getPinList({});
+      if (Array.isArray(direct)) {
+        removeIds(parseIdList(direct));
+        return;
+      }
+    } catch {
+      /* callback below */
+    }
+    ZoomMtg.getPinList({
+      success: (res: unknown) => removeIds(parseIdList(res)),
+      error: () => resolve(),
+    });
+  });
+}
+
+/** Guests pin the host (host big). Host must NOT pin self — that duplicates you in the corner. */
+function pinUserOnThisDevice(ZoomMtg: ZoomClientGlobal, userId: number): Promise<void> {
   return new Promise((resolve) => {
     if (!ZoomMtg.operatePin) {
       resolve();
       return;
     }
     ZoomMtg.operatePin({
-      userId: hostId,
+      userId,
       operate: "replace",
       success: () => resolve(),
       error: () => resolve(),
@@ -200,17 +240,21 @@ function spotlightHostForMeeting(ZoomMtg: ZoomClientGlobal, hostId: number): Pro
 }
 
 /**
- * Host large, everyone else small.
- * With 2 people, Zoom spotlight is unreliable — pin the host on every client instead.
+ * Host large, others small.
+ * - Guest clients: pin the host (works with 2 people).
+ * - Host client: clear pins + spotlight (pinning self shows you twice).
  */
 async function enforceHostLargeLayout(ZoomMtg: ZoomClientGlobal, payload: ZoomJoinPayload): Promise<void> {
   const hostId = await resolveHostUserId(ZoomMtg);
   if (hostId == null) return;
 
-  await pinHostOnThisDevice(ZoomMtg, hostId);
+  const hostSide = await isHostClient(ZoomMtg, payload);
 
-  if (await isHostClient(ZoomMtg, payload)) {
+  if (hostSide) {
+    await clearLocalPins(ZoomMtg);
     await spotlightHostForMeeting(ZoomMtg, hostId);
+  } else {
+    await pinUserOnThisDevice(ZoomMtg, hostId);
   }
 }
 
@@ -251,7 +295,7 @@ function whenZoomReady(ZoomMtg: ZoomClientGlobal, run: () => void): void {
 
 let joinPromise: Promise<void> | null = null;
 
-/** Join — every participant pins host video large on their own screen. */
+/** Join — guests pin host large; host spotlights self without pin (avoids duplicate self-view). */
 export async function joinZoomClientView(
   payload: ZoomJoinPayload,
   leaveUrl: string,
@@ -276,7 +320,7 @@ export async function joinZoomClientView(
           defaultView: "speaker",
           showMeetingHeader: false,
           disablePreview: true,
-          disablePictureInPicture: false,
+          disablePictureInPicture: true,
           disableZoomLogo: true,
           videoHeader: true,
           success: () => {
