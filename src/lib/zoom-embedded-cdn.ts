@@ -1,10 +1,6 @@
 /** Zoom Meeting SDK via CDN (bundled React 18 — avoids React 19 conflict in Synapse). */
 export const ZOOM_SDK_VERSION = "6.0.2";
 
-/** Minimum panel size for Zoom gallery view (all cameras visible). */
-export const ZOOM_GALLERY_MIN_WIDTH = 720;
-export const ZOOM_GALLERY_MIN_HEIGHT = 411;
-
 const version = ZOOM_SDK_VERSION;
 
 const VENDOR_SCRIPTS = [
@@ -33,7 +29,11 @@ export type ZoomEmbeddedClient = {
   init: (opts: Record<string, unknown>) => Promise<void>;
   join: (opts: Record<string, unknown>) => Promise<void>;
   updateVideoOptions?: (opts: Record<string, unknown>) => void;
+  setViewType?: (viewType: string) => unknown;
 };
+
+const GALLERY_MIN_WIDTH = 720;
+const GALLERY_MIN_HEIGHT = 411;
 
 type ZoomClientGlobal = {
   preLoadWasm: () => void;
@@ -95,10 +95,6 @@ export function loadZoomClientSdk(): Promise<ZoomClientGlobal> {
   return clientPromise;
 }
 
-export function supportsZoomGalleryView(width: number, height: number) {
-  return width >= ZOOM_GALLERY_MIN_WIDTH && height >= ZOOM_GALLERY_MIN_HEIGHT;
-}
-
 export function galleryViewSizes(width: number, height: number) {
   return {
     default: {
@@ -116,6 +112,13 @@ export function updateZoomComponentVideoSize(
   client.updateVideoOptions?.({
     viewSizes: galleryViewSizes(width, height),
   });
+  if (
+    window.crossOriginIsolated &&
+    width >= GALLERY_MIN_WIDTH &&
+    height >= GALLERY_MIN_HEIGHT
+  ) {
+    client.setViewType?.("gallery");
+  }
 }
 
 export function joinZoomClientView(payload: ZoomJoinPayload, leaveUrl: string): Promise<void> {
@@ -153,13 +156,16 @@ export async function joinZoomComponentView(
   const ZoomMtgEmbedded = await loadZoomEmbeddedSdk();
   const client = ZoomMtgEmbedded.createClient();
   const { width, height } = root.getBoundingClientRect();
+  const isolated = window.crossOriginIsolated;
 
   await client.init({
     zoomAppRoot: root,
     language: "en-US",
     patchJsMedia: true,
-    disableCORP: !window.crossOriginIsolated,
+    enableHD: isolated,
+    disableCORP: !isolated,
     customize: {
+      meetingInfo: [],
       video: {
         isResizable: true,
         defaultViewType: "gallery",
@@ -178,6 +184,10 @@ export async function joinZoomComponentView(
     tk: "",
     zak: payload.zak ?? "",
   });
+
+  if (isolated && width >= GALLERY_MIN_WIDTH && height >= GALLERY_MIN_HEIGHT) {
+    client.setViewType?.("gallery");
+  }
 
   return client;
 }

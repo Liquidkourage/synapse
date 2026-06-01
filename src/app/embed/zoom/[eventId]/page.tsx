@@ -10,6 +10,14 @@ import {
   type ZoomJoinPayload,
 } from "@/lib/zoom-embedded-cdn";
 
+async function waitForEmbedSize(root: HTMLElement) {
+  for (let i = 0; i < 60; i++) {
+    const { width, height } = root.getBoundingClientRect();
+    if (width >= 320 && height >= 240) return;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+}
+
 /** Isolated Zoom page — Component View in iframe on stage; Client View if opened directly. */
 export default function ZoomEmbedPage() {
   const params = useParams<{ eventId: string }>();
@@ -17,7 +25,6 @@ export default function ZoomEmbedPage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<ZoomEmbeddedClient | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!eventId) return;
@@ -50,6 +57,7 @@ export default function ZoomEmbedPage() {
 
         if (inIframe) {
           if (!root) return;
+          await waitForEmbedSize(root);
           const client = await joinZoomComponentView(root, payload);
           if (disposed) return;
           clientRef.current = client;
@@ -67,11 +75,10 @@ export default function ZoomEmbedPage() {
           await joinZoomClientView(payload, leaveUrl);
         }
 
-        if (!disposed) setLoading(false);
+        if (!disposed) setError(null);
       } catch (e) {
         if (!disposed) {
           setError(e instanceof Error ? e.message : "Zoom join failed");
-          setLoading(false);
         }
       }
     }
@@ -87,11 +94,6 @@ export default function ZoomEmbedPage() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-black">
-      {loading && !error ? (
-        <p className="absolute inset-0 z-10 flex items-center justify-center text-sm text-zinc-500">
-          Joining Zoom…
-        </p>
-      ) : null}
       {error ? (
         <p className="absolute inset-0 z-10 flex items-center justify-center px-4 text-center text-sm text-amber-200/90">
           {error}

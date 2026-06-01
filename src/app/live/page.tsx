@@ -78,7 +78,7 @@ export default async function LivePage() {
     : false;
 
   const broadcastLabel = live && isZoomNativeEvent(live)
-    ? "Zoom meeting"
+    ? "Video"
     : live?.broadcastEmbedUrl && isDailyNativeBroadcastUrl(live.broadcastEmbedUrl)
       ? "Live video"
       : "Host video";
