@@ -13,6 +13,7 @@ import {
   panelZoomFromNormalizedPanels,
   remapPublishedPanelZs,
   VIEWER_CANVAS_MARGIN,
+  VIEWER_PANEL_MIN_H,
   type PanelZoomState,
   type ViewerCanvasLayoutV1,
   type ViewerMobileTabId,
