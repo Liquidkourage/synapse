@@ -13,6 +13,11 @@ type ViewerPanelsProps = {
   broadcastDescription?: string | null;
   broadcastEmbedUrl: string | null;
   broadcastIframeSrc: string | null;
+  broadcastStageIframeSrc?: string | null;
+  broadcastMeetingIframeSrc?: string | null;
+  broadcastBreakoutDual?: boolean;
+  broadcastViewerIsHost?: boolean;
+  broadcastZoomEventId?: string | null;
   canViewBroadcast: boolean;
   session: Session | null;
   gameEmbed: EventViewerPanelsGameEmbed;

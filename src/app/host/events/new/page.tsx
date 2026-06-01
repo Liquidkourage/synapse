@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { isHostOrAbove } from "@/lib/rbac";
 import { EventCreateForm } from "@/components/event-form";
 import { getSynapseVideoServerHints } from "@/lib/synapse-video";
+import { getHostZoomStatusForUser } from "@/lib/host-zoom-status";
 
 export default async function NewHostEventPage({
   searchParams,
@@ -15,6 +16,7 @@ export default async function NewHostEventPage({
   if (!session?.user || !isHostOrAbove(session.user.role)) redirect("/login");
 
   const videoHints = getSynapseVideoServerHints();
+  const zoomStatus = await getHostZoomStatusForUser(session.user.id);
 
   let hostOptions: { id: string; label: string }[] | undefined;
   if (session.user.role === "ADMIN" || session.user.role === "PRODUCER") {
@@ -37,6 +39,8 @@ export default async function NewHostEventPage({
         hostOptions={hostOptions}
         nativeVideoAvailable={videoHints.nativeVideoAvailable}
         autoRoomOnCreate={videoHints.autoRoomOnCreate}
+        zoomOAuthConfigured={zoomStatus.zoomOAuthConfigured}
+        hostZoomConnected={zoomStatus.hostZoomConnected}
       />
     </div>
   );

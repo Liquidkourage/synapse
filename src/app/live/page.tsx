@@ -6,9 +6,9 @@ import { LocalDateTime } from "@/components/local-datetime";
 import { EventVenmoTipBlock } from "@/components/event-venmo-tip";
 import { EventStageShell } from "@/components/event-stage-shell";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
-import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
+import { getBroadcastEmbedPageProps } from "@/lib/broadcast-embed-props";
+import { isZoomNativeEvent } from "@/lib/zoom-meetings";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
-import { ensureTwitchPlayerParents } from "@/lib/twitch-embed";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
@@ -39,21 +39,31 @@ export default async function LivePage() {
   const secondaryEmbedSrc =
     live?.secondaryEmbedUrl && isSafeUrlForIframe(live.secondaryEmbedUrl) ? live.secondaryEmbedUrl : null;
 
-  const rawBroadcastSrc = live
-    ? await resolveDailyBroadcastEmbedUrl(
+  const hostForEmbed = await getRequestHostnameForEmbeds();
+  const broadcastEmbeds = live
+    ? await getBroadcastEmbedPageProps(
         {
+          id: live.id,
           broadcastEmbedUrl: live.broadcastEmbedUrl,
           broadcastHostOnlyJoin: live.broadcastHostOnlyJoin,
           broadcastStreamingMode: live.broadcastStreamingMode,
           broadcastBreakoutsEnabled: live.broadcastBreakoutsEnabled,
+          broadcastVideoProvider: live.broadcastVideoProvider,
+          zoomMeetingNumber: live.zoomMeetingNumber,
           hostId: live.hostId,
           producerId: live.producerId,
         },
         session,
+        hostForEmbed,
       )
-    : null;
-  const hostForEmbed = await getRequestHostnameForEmbeds();
-  const embedSrc = rawBroadcastSrc ? ensureTwitchPlayerParents(rawBroadcastSrc, hostForEmbed) : null;
+    : {
+        broadcastIframeSrc: null,
+        broadcastStageIframeSrc: null,
+        broadcastMeetingIframeSrc: null,
+        broadcastBreakoutDual: false,
+        broadcastViewerIsHost: false,
+        broadcastZoomEventId: null,
+      };
 
   const canViewBroadcast = live
     ? canViewBroadcastEmbed(
@@ -66,9 +76,10 @@ export default async function LivePage() {
       )
     : false;
 
-  const broadcastLabel =
-    live?.broadcastEmbedUrl && isDailyNativeBroadcastUrl(live.broadcastEmbedUrl)
-      ? "Synapse video"
+  const broadcastLabel = live && isZoomNativeEvent(live)
+    ? "Zoom meeting"
+    : live?.broadcastEmbedUrl && isDailyNativeBroadcastUrl(live.broadcastEmbedUrl)
+      ? "Live video"
       : "Host video";
 
   const hostViewerLayout = live ? parseViewerCanvasLayoutFromDb(live.viewerCanvasLayout) : null;
@@ -138,7 +149,12 @@ export default async function LivePage() {
           storageKey={`live-${live.slug}`}
           broadcastLabel={broadcastLabel}
           broadcastEmbedUrl={live.broadcastEmbedUrl}
-          broadcastIframeSrc={embedSrc}
+          broadcastIframeSrc={broadcastEmbeds.broadcastIframeSrc}
+          broadcastStageIframeSrc={broadcastEmbeds.broadcastStageIframeSrc}
+          broadcastMeetingIframeSrc={broadcastEmbeds.broadcastMeetingIframeSrc}
+          broadcastBreakoutDual={broadcastEmbeds.broadcastBreakoutDual}
+          broadcastViewerIsHost={broadcastEmbeds.broadcastViewerIsHost}
+          broadcastZoomEventId={broadcastEmbeds.broadcastZoomEventId}
           canViewBroadcast={canViewBroadcast}
           session={session}
           gameEmbed={gameEmbed}

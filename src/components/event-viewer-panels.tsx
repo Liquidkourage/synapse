@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import type { Session } from "next-auth";
+import { BreakoutDualVideo } from "@/components/breakout-dual-video";
 import { BroadcastEmbed, BROADCAST_IFRAME_ALLOW } from "@/components/broadcast-embed";
+import { ZoomMeetingEmbed } from "@/components/zoom-meeting-embed";
 import { BroadcastRestrictedNotice } from "@/components/broadcast-restricted-notice";
 import { MobileViewerTabs } from "@/components/mobile-viewer-tabs";
 import { StreamingEmbedUnavailable } from "@/components/streaming-embed-unavailable";
@@ -29,6 +31,12 @@ type Props = {
   broadcastDescription?: string | null;
   broadcastEmbedUrl: string | null;
   broadcastIframeSrc: string | null;
+  /** Breakout events: pinned host stage + meeting room for team breakouts. */
+  broadcastStageIframeSrc?: string | null;
+  broadcastMeetingIframeSrc?: string | null;
+  broadcastBreakoutDual?: boolean;
+  broadcastViewerIsHost?: boolean;
+  broadcastZoomEventId?: string | null;
   canViewBroadcast: boolean;
   session: Session | null;
   gameEmbed: EventViewerPanelsGameEmbed;
@@ -65,6 +73,11 @@ export function EventViewerPanels({
   broadcastDescription,
   broadcastEmbedUrl,
   broadcastIframeSrc,
+  broadcastStageIframeSrc = null,
+  broadcastMeetingIframeSrc = null,
+  broadcastBreakoutDual = false,
+  broadcastViewerIsHost = false,
+  broadcastZoomEventId = null,
   canViewBroadcast,
   session,
   gameEmbed,
@@ -89,13 +102,24 @@ export function EventViewerPanels({
   const primaryInvalid = !!(embedUrl && gameEmbed.show && !primaryEmbedSrc);
   const secondaryInvalid = !!(secondaryEmbedUrl && gameEmbed.show && !secondaryEmbedSrc);
 
-  const hasVideo = !!broadcastEmbedUrl;
+  const hasVideo = !!broadcastEmbedUrl || !!broadcastZoomEventId;
   const hasPrimary = showPrimary;
   const hasSecondary = showSecondary;
   const showResizable = hasVideo || hasPrimary || hasSecondary;
 
+  const hasBreakoutDual =
+    broadcastBreakoutDual && !!(broadcastStageIframeSrc || broadcastMeetingIframeSrc);
+
   const videoSlot =
-    hasVideo && broadcastIframeSrc ? (
+    hasVideo && broadcastZoomEventId ? (
+      <ZoomMeetingEmbed eventId={broadcastZoomEventId} fill />
+    ) : hasVideo && hasBreakoutDual ? (
+      <BreakoutDualVideo
+        stageSrc={broadcastStageIframeSrc}
+        meetingSrc={broadcastMeetingIframeSrc}
+        isHost={broadcastViewerIsHost}
+      />
+    ) : hasVideo && broadcastIframeSrc ? (
       <BroadcastEmbed src={broadcastIframeSrc} title="Live host video" fill showOpenInNewTab />
     ) : hasVideo && !canViewBroadcast ? (
       <div className="flex min-h-[160px] flex-1 items-center px-2">

@@ -168,7 +168,8 @@ Live host video is **built in** via [Daily.co](https://www.daily.co/) (free tier
 - Saving a **new** event auto-creates a Daily room (unless you already pasted a custom video URL, or you set `SYNAPSE_VIDEO_AUTO_ROOM=false`).
 - **Edit event:** use **Create new Synapse video room** if you need a fresh room.
 - **Override:** paste any other iframe-safe live URL in the same field if you use a different provider.
-- **Video room style (Daily):** **Streaming** (default) — host on camera, players watch-only. **Open room** — everyone joins with camera/mic. **Meeting with breakout rooms** — everyone joins the main room; the **host** uses Daily Prebuilt’s **Breakout** control to create team rooms, assign players, and end breakouts (see [Daily’s breakout guide](https://www.daily.co/blog/daily-prebuilt-breakout-rooms-demo/)). Requires `DAILY_API_KEY`; do not use “Hide video from non-hosts” with breakouts.
+- **Zoom (recommended for trivia breakouts):** Each host connects their Zoom at `/host/settings/zoom`. On events choose **Zoom (your account)** and **Meeting with breakout rooms**. Enable **Broadcast voice to breakout rooms** in the host’s Zoom web portal. Requires `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` and Meeting SDK on your Zoom app.
+- **Built-in video (Daily, optional):** **Streaming** — host on camera, watch-only players. **Open room** — everyone joins with camera/mic. **Breakouts** — dual-panel stage + meeting (see `DAILY_API_KEY`). Do not use “Hide video from non-hosts” with Daily breakouts.
 - **Hide video from players (optional):** checkbox — iframe only for host / assigned producer / admin; others see a notice. UI gating only; combine with Daily private rooms for stronger control.
 
 Implementation: `src/lib/synapse-video.ts`, `src/lib/daily-broadcast-url.ts`, `src/lib/broadcast-access.ts`, `POST /api/host/events/[eventId]/synapse-video`.

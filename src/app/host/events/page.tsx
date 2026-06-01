@@ -54,6 +54,12 @@ export default async function HostEventsPage({
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/host/settings/zoom"
+            className="rounded-xl border border-sky-500/40 px-4 py-2 text-sm text-sky-200 hover:bg-sky-950/40"
+          >
+            Zoom settings
+          </Link>
+          <Link
             href="/host/events/new"
             className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
           >

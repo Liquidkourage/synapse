@@ -7,9 +7,10 @@ import { EventJoinButton } from "@/components/event-join";
 import { EventVenmoTipBlock } from "@/components/event-venmo-tip";
 import { EventStageShell } from "@/components/event-stage-shell";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
-import { resolveDailyBroadcastEmbedUrl } from "@/lib/daily-broadcast-url";
+import { getBroadcastEmbedPageProps } from "@/lib/broadcast-embed-props";
+import { isZoomNativeEvent } from "@/lib/zoom-meetings";
+import { ZoomBreakoutsHostGuide } from "@/components/zoom-breakouts-host-guide";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
-import { ensureTwitchPlayerParents } from "@/lib/twitch-embed";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
@@ -31,21 +32,31 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const session = await auth();
   const eff = getEffectiveEventStatus(event);
 
-  const rawBroadcastSrc = event.broadcastEmbedUrl
-    ? await resolveDailyBroadcastEmbedUrl(
+  const hostForEmbed = await getRequestHostnameForEmbeds();
+  const broadcastEmbeds = event.broadcastEmbedUrl
+    ? await getBroadcastEmbedPageProps(
         {
+          id: event.id,
           broadcastEmbedUrl: event.broadcastEmbedUrl,
           broadcastHostOnlyJoin: event.broadcastHostOnlyJoin,
           broadcastStreamingMode: event.broadcastStreamingMode,
           broadcastBreakoutsEnabled: event.broadcastBreakoutsEnabled,
+          broadcastVideoProvider: event.broadcastVideoProvider,
+          zoomMeetingNumber: event.zoomMeetingNumber,
           hostId: event.hostId,
           producerId: event.producerId,
         },
         session,
+        hostForEmbed,
       )
-    : null;
-  const hostForEmbed = await getRequestHostnameForEmbeds();
-  const embedSrc = rawBroadcastSrc ? ensureTwitchPlayerParents(rawBroadcastSrc, hostForEmbed) : null;
+    : {
+        broadcastIframeSrc: null,
+        broadcastStageIframeSrc: null,
+        broadcastMeetingIframeSrc: null,
+        broadcastBreakoutDual: false,
+        broadcastViewerIsHost: false,
+        broadcastZoomEventId: null,
+      };
 
   const canViewBroadcast = canViewBroadcastEmbed(
     {
@@ -64,16 +75,19 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const secondaryEmbedSrc =
     event.secondaryEmbedUrl && isSafeUrlForIframe(event.secondaryEmbedUrl) ? event.secondaryEmbedUrl : null;
 
-  const broadcastLabel =
-    event.broadcastEmbedUrl && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-      ? "Synapse video"
+  const broadcastLabel = isZoomNativeEvent(event)
+    ? "Zoom meeting"
+    : event.broadcastEmbedUrl && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+      ? "Live video"
       : "Host video (embed)";
 
   const broadcastDescription = event.broadcastEmbedUrl
     ? event.broadcastHostOnlyJoin
       ? "Hidden from players — only the host (and staff) see the embed here."
-      : event.broadcastBreakoutsEnabled && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-        ? "Breakout rooms — join the call; host assigns team rooms from the Breakout menu in video."
+      : isZoomNativeEvent(event) && event.broadcastBreakoutsEnabled
+        ? "Zoom meeting with breakout rooms — host can broadcast voice to all teams."
+        : event.broadcastBreakoutsEnabled && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+          ? "Host stays on screen and audio at the top; use the lower panel for team breakouts."
         : event.broadcastStreamingMode && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
           ? "Streaming layout — host on camera; players watch without joining the call."
           : isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
@@ -81,11 +95,17 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
             : "Live capture from your embed URL — viewers stay on Synapse."
     : null;
 
-  const showBreakoutHostGuide =
+  const showDailyBreakoutHostGuide =
     !!event.broadcastBreakoutsEnabled &&
     !!session?.user &&
     session.user.id === event.hostId &&
     isDailyNativeBroadcastUrl(event.broadcastEmbedUrl);
+
+  const showZoomBreakoutHostGuide =
+    !!event.broadcastBreakoutsEnabled &&
+    !!session?.user &&
+    session.user.id === event.hostId &&
+    isZoomNativeEvent(event);
 
   const [messages, attendanceCount, userAttendance] = await Promise.all([
     prisma.chatMessage.findMany({
@@ -155,7 +175,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               attendanceCount={attendanceCount}
             />
 
-            {showBreakoutHostGuide ? <DailyBreakoutsHostGuide editEventId={event.id} /> : null}
+            {showZoomBreakoutHostGuide ? <ZoomBreakoutsHostGuide editEventId={event.id} /> : null}
+            {showDailyBreakoutHostGuide ? <DailyBreakoutsHostGuide editEventId={event.id} /> : null}
 
             {event.longDescription ? (
               <section>
@@ -221,7 +242,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         broadcastLabel={broadcastLabel}
         broadcastDescription={broadcastDescription}
         broadcastEmbedUrl={event.broadcastEmbedUrl}
-        broadcastIframeSrc={embedSrc}
+        broadcastIframeSrc={broadcastEmbeds.broadcastIframeSrc}
+        broadcastStageIframeSrc={broadcastEmbeds.broadcastStageIframeSrc}
+        broadcastMeetingIframeSrc={broadcastEmbeds.broadcastMeetingIframeSrc}
+        broadcastBreakoutDual={broadcastEmbeds.broadcastBreakoutDual}
+        broadcastViewerIsHost={broadcastEmbeds.broadcastViewerIsHost}
+        broadcastZoomEventId={broadcastEmbeds.broadcastZoomEventId}
         canViewBroadcast={canViewBroadcast}
         session={session}
         gameEmbed={gameEmbed}

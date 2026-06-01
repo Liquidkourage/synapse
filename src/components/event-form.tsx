@@ -3,7 +3,10 @@ import type { Event } from "@/generated/prisma";
 import { CoverImageInput } from "@/components/cover-image-input";
 import { EventFormKindLayout } from "@/components/event-form-kind-layout";
 import { EventScheduleFields } from "@/components/event-schedule-fields";
+import Link from "next/link";
 import { SynapseVideoRoomButton } from "@/components/synapse-video-room-button";
+import { ZoomCreateMeetingButton } from "@/components/zoom-create-meeting-button";
+import { broadcastVideoProviderFromEvent } from "@/lib/broadcast-video-provider";
 import { effectiveEventKind } from "@/lib/event-kind";
 import { videoRoomModeFromEvent } from "@/lib/daily-video-mode";
 import { formatDurationHhMm, formatStartForDatetimeLocal } from "@/lib/event-schedule";
@@ -12,10 +15,14 @@ export function EventCreateForm({
   hostOptions,
   nativeVideoAvailable,
   autoRoomOnCreate,
+  zoomOAuthConfigured,
+  hostZoomConnected,
 }: {
   hostOptions?: { id: string; label: string }[];
   nativeVideoAvailable: boolean;
   autoRoomOnCreate: boolean;
+  zoomOAuthConfigured: boolean;
+  hostZoomConnected: boolean;
 }) {
   return (
     <form action={createEvent} className="max-w-2xl space-y-4">
@@ -23,6 +30,8 @@ export function EventCreateForm({
         hostOptions={hostOptions}
         nativeVideoAvailable={nativeVideoAvailable}
         autoRoomOnCreate={autoRoomOnCreate}
+        zoomOAuthConfigured={zoomOAuthConfigured}
+        hostZoomConnected={hostZoomConnected}
       />
       <button
         type="submit"
@@ -39,11 +48,15 @@ export function EventEditForm({
   hostOptions,
   nativeVideoAvailable,
   autoRoomOnCreate,
+  zoomOAuthConfigured,
+  hostZoomConnected,
 }: {
   event: Event;
   hostOptions?: { id: string; label: string }[];
   nativeVideoAvailable: boolean;
   autoRoomOnCreate: boolean;
+  zoomOAuthConfigured: boolean;
+  hostZoomConnected: boolean;
 }) {
   const action = updateEvent.bind(null, event.id);
   return (
@@ -53,6 +66,8 @@ export function EventEditForm({
         hostOptions={hostOptions}
         nativeVideoAvailable={nativeVideoAvailable}
         autoRoomOnCreate={autoRoomOnCreate}
+        zoomOAuthConfigured={zoomOAuthConfigured}
+        hostZoomConnected={hostZoomConnected}
         defaults={{
           title: event.title,
           shortDescription: event.shortDescription,
@@ -67,6 +82,7 @@ export function EventEditForm({
           broadcastEmbedUrl: event.broadcastEmbedUrl ?? "",
           broadcastHostOnlyJoin: event.broadcastHostOnlyJoin ? "on" : "",
           videoRoomMode: videoRoomModeFromEvent(event),
+          broadcastVideoProvider: broadcastVideoProviderFromEvent(event),
           embedUrl: event.embedUrl ?? "",
           secondaryEmbedUrl: event.secondaryEmbedUrl ?? "",
           integrationType: event.integrationType ?? "",
@@ -99,15 +115,20 @@ function FormFields({
   hostOptions,
   nativeVideoAvailable,
   autoRoomOnCreate,
+  zoomOAuthConfigured,
+  hostZoomConnected,
   defaults,
 }: {
   eventId?: string;
   hostOptions?: { id: string; label: string }[];
   nativeVideoAvailable: boolean;
   autoRoomOnCreate: boolean;
+  zoomOAuthConfigured: boolean;
+  hostZoomConnected: boolean;
   defaults?: Record<string, string>;
 }) {
   const d = defaults ?? {};
+  const videoProvider = d.broadcastVideoProvider || "daily";
   const defaultKind = (d.eventKind === "PODCAST" ? "PODCAST" : "LIVE_INTERACTIVE") as "LIVE_INTERACTIVE" | "PODCAST";
 
   const hostField =
@@ -303,84 +324,117 @@ function FormFields({
         />
       </div>
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-4">
-        <label className="block text-sm font-medium text-emerald-200">Synapse video (host camera)</label>
+        <label className="block text-sm font-medium text-emerald-200">Live video</label>
         <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-          Live video for viewers on Synapse — iframe embed, not a social streaming site. Hosts use camera/mic inside the
-          embedded room.
+          Embedded on the event stage. Zoom is recommended for trivia with breakout rooms; built-in video uses Daily when
+          configured.
         </p>
 
-        {nativeVideoAvailable ? (
-          <div className="mt-3 space-y-2 text-xs leading-relaxed text-zinc-500">
-            <p>
-              <span className="font-medium text-emerald-200/90">Built-in (Daily.co):</span>{" "}
-              <code className="rounded bg-zinc-900 px-1 py-0.5 text-zinc-400">DAILY_API_KEY</code> is set.{" "}
-              {!eventId
-                ? "This event can get a Daily room automatically when you save."
-                : "Use the button below for a new room, or leave the URL as-is."}
-            </p>
-            {autoRoomOnCreate && !eventId && (
-              <p className="rounded-lg bg-zinc-900/50 px-2 py-1.5 text-emerald-200/85">
-                Saving this event will create a Daily room unless you paste a URL in the field first.
-              </p>
-            )}
-            <p className="text-zinc-600">
-              <span className="font-medium text-zinc-500">Override:</span> paste any other iframe-safe live URL (Mux
-              Live, 100ms, etc.) to use that instead of Daily.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-3 space-y-2 text-xs leading-relaxed text-zinc-500">
-            <p className="rounded-lg border border-emerald-500/20 bg-emerald-950/25 px-3 py-2 text-emerald-100/90">
-              <span className="font-medium text-emerald-200">Want Synapse to create video rooms for you?</span> Get a
-              free API key: log in to{" "}
-              <a
-                href="https://www.daily.co/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-white"
-              >
-                Daily.co
-              </a>
-              , open{" "}
-              <a
-                href="https://dashboard.daily.co/developers"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-white"
-              >
-                Developers → API keys
-              </a>
-              , copy a key, add{" "}
-              <code className="rounded bg-black/30 px-1 py-0.5 text-emerald-200/95">DAILY_API_KEY=&quot;…&quot;</code>{" "}
-              to <code className="rounded bg-black/30 px-1 py-0.5 text-emerald-200/95">.env</code>, restart the server,
-              then refresh this page.
-            </p>
-            <p className="text-zinc-600">
-              <span className="font-medium text-zinc-500">Or</span> paste an iframe-safe room URL below if you use
-              another provider (Mux Live, 100ms, etc.).
-            </p>
-          </div>
+        <fieldset className="mt-4 space-y-2 border-0 p-0">
+          <legend className="text-sm font-medium text-zinc-300">Video provider</legend>
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-400">
+            <input
+              type="radio"
+              name="broadcastVideoProvider"
+              value="zoom"
+              defaultChecked={videoProvider === "zoom"}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium text-sky-300">Zoom (your account)</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">
+                Best for breakouts — host broadcasts voice to all team rooms.{" "}
+                <Link href="/host/settings/zoom" className="text-sky-400 hover:underline">
+                  Connect Zoom
+                </Link>
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-400">
+            <input
+              type="radio"
+              name="broadcastVideoProvider"
+              value="daily"
+              defaultChecked={videoProvider === "daily"}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium text-zinc-300">Built-in video</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">
+                {nativeVideoAvailable
+                  ? "Daily.co room (optional auto-create on save)."
+                  : "Requires DAILY_API_KEY on the server."}
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-400">
+            <input
+              type="radio"
+              name="broadcastVideoProvider"
+              value="custom"
+              defaultChecked={videoProvider === "custom"}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium text-zinc-300">Custom embed URL</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">Mux, 100ms, or any iframe-safe player URL.</span>
+            </span>
+          </label>
+        </fieldset>
+
+        {videoProvider === "zoom" && zoomOAuthConfigured && !hostZoomConnected ? (
+          <p className="mt-3 rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
+            The event host must{" "}
+            <Link href="/host/settings/zoom" className="font-medium underline">
+              connect Zoom
+            </Link>{" "}
+            before saving.
+          </p>
+        ) : null}
+
+        {videoProvider === "zoom" && hostZoomConnected ? (
+          <p className="mt-3 text-xs text-emerald-200/85">
+            Zoom connected. Saving creates or updates a meeting on the host&apos;s Zoom account.
+          </p>
+        ) : null}
+
+        {videoProvider === "daily" && nativeVideoAvailable && autoRoomOnCreate && !eventId ? (
+          <p className="mt-3 rounded-lg bg-zinc-900/50 px-2 py-1.5 text-xs text-emerald-200/85">
+            Saving will create a Daily room unless you paste a URL below.
+          </p>
+        ) : null}
+
+        {(videoProvider === "daily" || videoProvider === "custom") && (
+          <>
+            <label
+              htmlFor={eventId ? `broadcast-${eventId}` : "broadcast-new"}
+              className="mt-3 block text-xs text-zinc-500"
+            >
+              Video embed URL {videoProvider === "daily" ? "(optional for auto-room)" : ""}
+            </label>
+            <input
+              id={eventId ? `broadcast-${eventId}` : "broadcast-new"}
+              name="broadcastEmbedUrl"
+              placeholder={
+                videoProvider === "daily" && nativeVideoAvailable
+                  ? "Leave empty for auto-room"
+                  : "https://…"
+              }
+              defaultValue={d.broadcastEmbedUrl}
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+            />
+            {eventId && videoProvider === "daily" && nativeVideoAvailable ? (
+              <SynapseVideoRoomButton eventId={eventId} />
+            ) : null}
+          </>
         )}
 
-        <label htmlFor={eventId ? `broadcast-${eventId}` : "broadcast-new"} className="mt-3 block text-xs text-zinc-500">
-          Video embed URL
-        </label>
-        <input
-          id={eventId ? `broadcast-${eventId}` : "broadcast-new"}
-          name="broadcastEmbedUrl"
-          placeholder={
-            nativeVideoAvailable
-              ? "Leave empty for Daily auto-room, or paste another embed URL"
-              : "Paste a room URL — or add DAILY_API_KEY to .env and leave this empty"
-          }
-          defaultValue={d.broadcastEmbedUrl}
-          className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-        />
-
-        {eventId && nativeVideoAvailable && <SynapseVideoRoomButton eventId={eventId} />}
+        {eventId && videoProvider === "zoom" && hostZoomConnected ? (
+          <ZoomCreateMeetingButton eventId={eventId} />
+        ) : null}
 
         <fieldset className="mt-4 space-y-2 border-0 p-0">
-          <legend className="text-sm font-medium text-zinc-300">Video room style (Daily)</legend>
+          <legend className="text-sm font-medium text-zinc-300">Meeting style</legend>
           <p className="text-xs text-zinc-500">
             Streaming is the default: players see the host on video but are not prompted to join with camera/mic.
           </p>
@@ -425,8 +479,9 @@ function FormFields({
             <span>
               <span className="font-medium text-zinc-300">Meeting with breakout rooms</span>
               <span className="mt-0.5 block text-xs text-zinc-500">
-                Everyone joins the main room; you (host) use Daily&apos;s Breakout button to send people to team rooms
-                and bring them back. Best for trivia teams.
+                {videoProvider === "zoom"
+                  ? "Zoom breakout rooms — use Broadcast voice so all teams hear you. Recommended for trivia."
+                  : "Daily: host on top panel, teams in lower panel. Zoom handles this natively."}
               </span>
             </span>
           </label>

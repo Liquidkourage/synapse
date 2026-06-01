@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { ensureDailyStageRoom } from "@/lib/daily-stage-room";
 import { dailyVideoModeFromEvent, type DailyVideoMode } from "@/lib/daily-video-mode";
 
 /** Built-in Synapse video uses Daily.co (free dev tier + pay-as-you-go). Docs: https://www.daily.co/pricing */
@@ -8,7 +9,7 @@ export const SYNAPSE_VIDEO_PROVIDER = "daily" as const;
 const DAILY_ROOMS = "https://api.daily.co/v1/rooms";
 
 /** Rooms we've already synced this process — POST is idempotent; bump version when sync payload changes. */
-const ROOM_CONFIG_SYNC_VER = 3;
+const ROOM_CONFIG_SYNC_VER = 4;
 const roomConfigSynced = new Set<string>();
 
 function roomPropertiesForMode(mode: DailyVideoMode, cloudRecording: boolean) {
@@ -68,6 +69,19 @@ export async function ensureDailyRoomConfig(roomName: string, mode: DailyVideoMo
 
   if (res.ok) {
     roomConfigSynced.add(cacheKey);
+    if (mode === "breakouts") {
+      try {
+        const info = await fetch(`${DAILY_ROOMS}/${encodeURIComponent(roomName)}`, {
+          headers: { Authorization: `Bearer ${key}` },
+        });
+        if (info.ok) {
+          const body = (await info.json()) as { url?: string };
+          if (body.url) await ensureDailyStageRoom(body.url);
+        }
+      } catch {
+        /* stage room is best-effort */
+      }
+    }
     return;
   }
   const detail = await res.text();
@@ -146,6 +160,10 @@ export async function provisionDailyRoomForEvent(
   const data = (await res.json()) as { url: string };
   if (!data.url) {
     return { ok: false, error: "Daily response missing url" };
+  }
+
+  if (mode === "breakouts") {
+    await ensureDailyStageRoom(data.url);
   }
 
   await prisma.event.update({

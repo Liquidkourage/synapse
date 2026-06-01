@@ -19,6 +19,8 @@ import {
 } from "@/lib/event-schedule";
 import type { EventKind } from "@/generated/prisma";
 import { parseVideoRoomModeForm } from "@/lib/daily-video-mode";
+import { parseBroadcastVideoProviderForm } from "@/lib/broadcast-video-provider";
+import { provisionZoomMeetingForEvent } from "@/lib/zoom-meetings";
 import { roomNameFromDailyRoomUrl } from "@/lib/daily-broadcast-url";
 import { deleteEventsCleanup } from "@/lib/event-delete";
 import { revalidateEventPublicPaths } from "@/lib/event-page-path";
@@ -53,6 +55,7 @@ const eventFields = z.object({
   broadcastEmbedUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
   broadcastHostOnlyJoin: z.preprocess((v) => v === "on" || v === true || v === "true", z.boolean().optional()),
   videoRoomMode: z.enum(["streaming", "open", "breakouts"]).optional(),
+  broadcastVideoProvider: z.enum(["daily", "zoom", "custom"]).optional(),
   integrationType: z.preprocess(emptyToUndef, z.string().max(80).optional()),
   instructions: z.preprocess(emptyToUndef, z.string().max(8000).optional()),
   coverImageUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
@@ -93,6 +96,7 @@ export async function createEvent(formData: FormData) {
   const videoMode = parseVideoRoomModeForm(parsed.data.videoRoomMode);
   const broadcastBreakoutsEnabled = videoMode === "breakouts";
   const broadcastStreamingMode = videoMode === "streaming";
+  const broadcastVideoProvider = parseBroadcastVideoProviderForm(parsed.data.broadcastVideoProvider);
   const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
 
   const hostId =
@@ -184,9 +188,13 @@ export async function createEvent(formData: FormData) {
       externalUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.externalUrl) ?? null,
       embedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.embedUrl) ?? null,
       secondaryEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
-      broadcastEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
+      broadcastEmbedUrl:
+        eventKind === "PODCAST" || broadcastVideoProvider === "zoom"
+          ? null
+          : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
+      broadcastVideoProvider: eventKind === "PODCAST" ? "daily" : broadcastVideoProvider,
       broadcastHostOnlyJoin:
-        eventKind === "PODCAST" || broadcastBreakoutsEnabled
+        eventKind === "PODCAST" || broadcastBreakoutsEnabled || broadcastVideoProvider === "zoom"
           ? false
           : (parsed.data.broadcastHostOnlyJoin ?? false),
       broadcastStreamingMode: eventKind === "PODCAST" ? true : broadcastStreamingMode,
@@ -209,10 +217,22 @@ export async function createEvent(formData: FormData) {
   });
 
   const { autoRoomOnCreate } = getSynapseVideoServerHints();
-  if (eventKind === "LIVE_INTERACTIVE" && autoRoomOnCreate && !parsed.data.broadcastEmbedUrl?.trim()) {
+  if (
+    eventKind === "LIVE_INTERACTIVE" &&
+    broadcastVideoProvider === "daily" &&
+    autoRoomOnCreate &&
+    !parsed.data.broadcastEmbedUrl?.trim()
+  ) {
     const r = await provisionDailyRoomForEvent(created.id);
     if (!r.ok) {
       console.error("[synapse-video] Auto-provision on create failed:", r.error);
+    }
+  }
+
+  if (eventKind === "LIVE_INTERACTIVE" && broadcastVideoProvider === "zoom") {
+    const z = await provisionZoomMeetingForEvent(created.id, { breakouts: broadcastBreakoutsEnabled });
+    if (!z.ok) {
+      console.error("[zoom] Auto-provision on create failed:", z.error);
     }
   }
 
@@ -243,6 +263,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   const videoMode = parseVideoRoomModeForm(parsed.data.videoRoomMode);
   const broadcastBreakoutsEnabled = videoMode === "breakouts";
   const broadcastStreamingMode = videoMode === "streaming";
+  const broadcastVideoProvider = parseBroadcastVideoProviderForm(parsed.data.broadcastVideoProvider);
   const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
 
   const tz = parsed.data.timezone.trim();
@@ -324,13 +345,26 @@ export async function updateEvent(eventId: string, formData: FormData) {
       externalUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.externalUrl) ?? null,
       embedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.embedUrl) ?? null,
       secondaryEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
-      broadcastEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
+      broadcastEmbedUrl:
+        eventKind === "PODCAST" || broadcastVideoProvider === "zoom"
+          ? null
+          : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
+      broadcastVideoProvider: eventKind === "PODCAST" ? "daily" : broadcastVideoProvider,
       broadcastHostOnlyJoin:
-        eventKind === "PODCAST" || broadcastBreakoutsEnabled
+        eventKind === "PODCAST" || broadcastBreakoutsEnabled || broadcastVideoProvider === "zoom"
           ? false
           : (parsed.data.broadcastHostOnlyJoin ?? false),
       broadcastStreamingMode: eventKind === "PODCAST" ? true : broadcastStreamingMode,
       broadcastBreakoutsEnabled: eventKind === "PODCAST" ? false : broadcastBreakoutsEnabled,
+      ...(broadcastVideoProvider !== "zoom"
+        ? {
+            zoomMeetingId: null,
+            zoomMeetingNumber: null,
+            zoomMeetingPasscode: null,
+            zoomMeetingJoinUrl: null,
+            zoomMeetingStartUrl: null,
+          }
+        : {}),
       integrationType: eventKind === "PODCAST" ? null : parsed.data.integrationType || null,
       instructions: eventKind === "PODCAST" ? null : parsed.data.instructions || null,
       coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
@@ -350,8 +384,16 @@ export async function updateEvent(eventId: string, formData: FormData) {
     },
   });
 
+  if (eventKind === "LIVE_INTERACTIVE" && broadcastVideoProvider === "zoom") {
+    const z = await provisionZoomMeetingForEvent(updated.id, { breakouts: broadcastBreakoutsEnabled });
+    if (!z.ok) {
+      console.error("[zoom] Provision on update failed:", z.error);
+    }
+  }
+
   if (
     eventKind !== "PODCAST" &&
+    broadcastVideoProvider === "daily" &&
     updated.broadcastEmbedUrl &&
     isDailyNativeBroadcastUrl(updated.broadcastEmbedUrl)
   ) {

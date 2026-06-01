@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EventEditForm } from "@/components/event-form";
 import { EventDeleteButton } from "@/components/event-delete-button";
 import { getSynapseVideoServerHints } from "@/lib/synapse-video";
+import { getHostZoomStatusForUser } from "@/lib/host-zoom-status";
 import { eventPublicPath } from "@/lib/event-page-path";
 import { isPodcastEvent } from "@/lib/event-kind";
 
@@ -23,6 +24,9 @@ export default async function EditHostEventPage({
   const videoHints = getSynapseVideoServerHints();
 
   const event = await prisma.event.findUnique({ where: { id } });
+  const zoomStatus = event
+    ? await getHostZoomStatusForUser(event.hostId)
+    : { zoomOAuthConfigured: false, hostZoomConnected: false, hostZoomEmail: null };
   if (!event) notFound();
 
   const canEdit =
@@ -71,6 +75,8 @@ export default async function EditHostEventPage({
         hostOptions={hostOptions}
         nativeVideoAvailable={videoHints.nativeVideoAvailable}
         autoRoomOnCreate={videoHints.autoRoomOnCreate}
+        zoomOAuthConfigured={zoomStatus.zoomOAuthConfigured}
+        hostZoomConnected={zoomStatus.hostZoomConnected}
       />
       <div className="border-t border-zinc-800 pt-6">
         <h2 className="text-sm font-medium text-zinc-400">Danger zone</h2>
