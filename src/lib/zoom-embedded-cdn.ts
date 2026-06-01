@@ -45,6 +45,7 @@ type ZoomClientGlobal = {
   getAttendeeslist: (opts: Record<string, unknown>) => void;
   operateSpotlight?: (opts: Record<string, unknown>) => void;
   operatePin?: (opts: Record<string, unknown>) => void;
+  getPinList?: (opts: Record<string, unknown>) => number[] | void;
   getSpotlightList?: (opts: Record<string, unknown>) => number[] | void;
   focusMode?: (opts: Record<string, unknown>) => void;
   inMeetingServiceListener?: (event: string, handler: (...args: unknown[]) => void) => void;
@@ -228,34 +229,37 @@ function spotlightUser(
   });
 }
 
-/** Pin is local to this client — host pins self so they see their own video large. */
-function pinUser(ZoomMtg: ZoomClientGlobal, userId: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (!ZoomMtg.operatePin) {
-      resolve(false);
-      return;
+/** Remove local pins — pinning the host duplicates them in the corner tile. */
+function clearLocalPins(ZoomMtg: ZoomClientGlobal): void {
+  if (!ZoomMtg.operatePin || !ZoomMtg.getPinList) return;
+  try {
+    const direct = ZoomMtg.getPinList({});
+    const ids = parseSpotlightIds(direct);
+    for (const id of ids) {
+      ZoomMtg.operatePin({ userId: id, operate: "remove" });
     }
-    ZoomMtg.operatePin({
-      userId,
-      operate: "replace",
-      success: () => resolve(true),
-      error: (err: unknown) => {
-        console.warn("[synapse-zoom] operatePin failed", err);
-        resolve(false);
+  } catch {
+    ZoomMtg.getPinList({
+      success: (res: unknown) => {
+        for (const id of parseSpotlightIds(res)) {
+          ZoomMtg.operatePin?.({ userId: id, operate: "remove" });
+        }
       },
     });
-  });
+  }
 }
 
-function enableFocusMode(ZoomMtg: ZoomClientGlobal): void {
+function disableFocusMode(ZoomMtg: ZoomClientGlobal): void {
   ZoomMtg.focusMode?.({
-    enable: true,
-    success: () => console.info("[synapse-zoom] focus mode enabled"),
-    error: (err: unknown) => console.warn("[synapse-zoom] focus mode failed", err),
+    enable: false,
+    success: () => console.info("[synapse-zoom] focus mode disabled — guests can see each other"),
+    error: () => {
+      /* meeting may not have focus mode on */
+    },
   });
 }
 
-/** Spotlight for everyone + pin for host's own screen (2-person meetings use active speaker otherwise). */
+/** Spotlight host for everyone; small tiles show all other participants (no pin/focus). */
 async function enforceHostPrimary(ZoomMtg: ZoomClientGlobal): Promise<void> {
   const hostId = await resolveHostUserId(ZoomMtg);
   if (hostId == null) {
@@ -263,13 +267,11 @@ async function enforceHostPrimary(ZoomMtg: ZoomClientGlobal): Promise<void> {
     return;
   }
 
-  await spotlightUser(ZoomMtg, hostId, "add");
+  clearLocalPins(ZoomMtg);
   await spotlightUser(ZoomMtg, hostId, "replace");
-  await pinUser(ZoomMtg, hostId);
 
   const spotlighted = await getSpotlightUserIds(ZoomMtg);
   if (!spotlighted.includes(hostId)) {
-    console.warn("[synapse-zoom] host not spotlighted after apply", { hostId, spotlighted });
     await spotlightUser(ZoomMtg, hostId, "add");
   }
 }
@@ -287,7 +289,7 @@ function setupHostPrimaryVideo(ZoomMtg: ZoomClientGlobal) {
     });
   };
 
-  enableFocusMode(ZoomMtg);
+  disableFocusMode(ZoomMtg);
 
   const retryDelays = [0, 400, 1000, 2000, 4000, 8000, 15_000, 25_000];
   for (const delay of retryDelays) {
@@ -361,7 +363,7 @@ function shouldRunHostLayout(ZoomMtg: ZoomClientGlobal, payload: ZoomJoinPayload
 
 let joinPromise: Promise<void> | null = null;
 
-/** Join via Client View — host spotlights + pins self; focus mode for guests. */
+/** Join via Client View — host spotlighted large; guest strip for everyone. */
 export async function joinZoomClientView(
   payload: ZoomJoinPayload,
   leaveUrl: string,
@@ -383,7 +385,7 @@ export async function joinZoomClientView(
           leaveOnPageUnload: true,
           enableHD: isolated,
           disableCORP: !isolated,
-          defaultView: "speaker",
+          defaultView: "multiSpeaker",
           showMeetingHeader: false,
           disablePreview: true,
           disablePictureInPicture: true,

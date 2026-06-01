@@ -123,7 +123,7 @@ export async function provisionZoomMeetingForEvent(
       join_before_host: true,
       waiting_room: false,
       auto_recording: "none",
-      focus_mode: true,
+      focus_mode: false,
       breakout_room: {
         enable: opts.breakouts,
       },
