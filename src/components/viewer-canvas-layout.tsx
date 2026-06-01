@@ -133,19 +133,27 @@ function saveStoredBundle(key: string, geoms: Stored, zoom: PanelZoomState) {
   }
 }
 
+function zoomVideoTopHeight(safeH: number, margin: number): number {
+  const minBottom = VIEWER_PANEL_MIN_H + margin;
+  const maxTop = safeH - minBottom - margin * 2;
+  const target = Math.max(411, Math.round(safeH * 0.52));
+  return Math.min(maxTop, Math.max(VIEWER_PANEL_MIN_H, target));
+}
+
 function defaultGeoms(
   w: number,
   h: number,
   hasVideo: boolean,
   hasPrimary: boolean,
   hasSecondary: boolean,
+  preferLargeVideoPanel = false,
 ): Stored {
   const m = 10;
   const safeW = Math.max(320, w);
   const safeH = Math.max(400, h);
 
   if (hasVideo && hasPrimary && hasSecondary) {
-    const topH = Math.round(safeH * 0.36);
+    const topH = preferLargeVideoPanel ? zoomVideoTopHeight(safeH, m) : Math.round(safeH * 0.36);
     const rowTop = m;
     const rowBottom = rowTop + topH + m;
     const bottomH = safeH - rowBottom - m;
@@ -157,7 +165,7 @@ function defaultGeoms(
     };
   }
   if (hasVideo && (hasPrimary || hasSecondary)) {
-    const topH = Math.round(safeH * 0.42);
+    const topH = preferLargeVideoPanel ? zoomVideoTopHeight(safeH, m) : Math.round(safeH * 0.42);
     const rest: Stored = {
       video: { x: m, y: m, width: safeW - m * 2, height: topH, z: 1 },
     };
@@ -190,8 +198,9 @@ function mergeSavedWithDefaults(
   hasVideo: boolean,
   hasPrimary: boolean,
   hasSecondary: boolean,
+  preferLargeVideoPanel = false,
 ): Stored {
-  const d = defaultGeoms(w, h, hasVideo, hasPrimary, hasSecondary);
+  const d = defaultGeoms(w, h, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel);
   const out: Stored = {};
   if (hasVideo) out.video = saved.video ?? d.video;
   if (hasPrimary) out.primary = saved.primary ?? d.primary;
@@ -207,8 +216,9 @@ function mergeHostPixelsWithDefaults(
   hasVideo: boolean,
   hasPrimary: boolean,
   hasSecondary: boolean,
+  preferLargeVideoPanel = false,
 ): Stored {
-  const d = defaultGeoms(w, h, hasVideo, hasPrimary, hasSecondary);
+  const d = defaultGeoms(w, h, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel);
   const out: Stored = { ...d, ...hostPx };
   return clampStored(out, w, h, hasVideo, hasPrimary, hasSecondary);
 }
@@ -362,6 +372,7 @@ export function ViewerCanvasLayout({
   eventId = null,
   canPublishViewerLayout = false,
   hasMobileChatTab = false,
+  preferLargeVideoPanel = false,
 }: {
   storageKey: string;
   video?: React.ReactNode;
@@ -380,6 +391,8 @@ export function ViewerCanvasLayout({
   canPublishViewerLayout?: boolean;
   /** Whether mobile layout includes a Chat tab (for publish default tab options). */
   hasMobileChatTab?: boolean;
+  /** Zoom events: default taller video panel for gallery view. */
+  preferLargeVideoPanel?: boolean;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const layoutInitRef = useRef(false);
@@ -458,7 +471,15 @@ export function ViewerCanvasLayout({
         let merged: Stored;
         let nextZoom: PanelZoomState;
         if (locked) {
-          merged = mergeSavedWithDefaults(bundle.geoms, w, h, hasVideo, hasPrimary, hasSecondary);
+          merged = mergeSavedWithDefaults(
+            bundle.geoms,
+            w,
+            h,
+            hasVideo,
+            hasPrimary,
+            hasSecondary,
+            preferLargeVideoPanel,
+          );
           nextZoom = mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary);
         } else if (hostLayoutRef.current) {
           const hostPx = denormalizeV1ToPixelPanels(
@@ -469,7 +490,15 @@ export function ViewerCanvasLayout({
             hasPrimary,
             hasSecondary,
           );
-          merged = mergeHostPixelsWithDefaults(hostPx, w, h, hasVideo, hasPrimary, hasSecondary);
+          merged = mergeHostPixelsWithDefaults(
+            hostPx,
+            w,
+            h,
+            hasVideo,
+            hasPrimary,
+            hasSecondary,
+            preferLargeVideoPanel,
+          );
           nextZoom = mergePanelZoomFromPartial(
             panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
             hasVideo,
@@ -477,7 +506,15 @@ export function ViewerCanvasLayout({
             hasSecondary,
           );
         } else {
-          merged = mergeSavedWithDefaults(bundle.geoms, w, h, hasVideo, hasPrimary, hasSecondary);
+          merged = mergeSavedWithDefaults(
+            bundle.geoms,
+            w,
+            h,
+            hasVideo,
+            hasPrimary,
+            hasSecondary,
+            preferLargeVideoPanel,
+          );
           nextZoom = mergePanelZoomFromPartial(bundle.zoom, hasVideo, hasPrimary, hasSecondary);
         }
         applyLayout(merged, nextZoom);
@@ -494,7 +531,15 @@ export function ViewerCanvasLayout({
           hasPrimary,
           hasSecondary,
         );
-        const merged = mergeHostPixelsWithDefaults(hostPx, w, h, hasVideo, hasPrimary, hasSecondary);
+        const merged = mergeHostPixelsWithDefaults(
+          hostPx,
+          w,
+          h,
+          hasVideo,
+          hasPrimary,
+          hasSecondary,
+          preferLargeVideoPanel,
+        );
         const nextZoom = mergePanelZoomFromPartial(
           panelZoomFromNormalizedPanels(hostLayoutRef.current.panels),
           hasVideo,
@@ -532,7 +577,7 @@ export function ViewerCanvasLayout({
     run(r.width, r.height);
 
     return () => ro.disconnect();
-  }, [mounted, storageKey, hostLayoutSig, hasVideo, hasPrimary, hasSecondary, applyLayout]);
+  }, [mounted, storageKey, hostLayoutSig, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel, applyLayout]);
 
   const markUserCustomized = useCallback(() => {
     setUserLocked(storageKey);
@@ -632,9 +677,25 @@ export function ViewerCanvasLayout({
         hasPrimary,
         hasSecondary,
       );
-      merged = mergeHostPixelsWithDefaults(hostPx, rect.width, rect.height, hasVideo, hasPrimary, hasSecondary);
+      merged = mergeHostPixelsWithDefaults(
+        hostPx,
+        rect.width,
+        rect.height,
+        hasVideo,
+        hasPrimary,
+        hasSecondary,
+        preferLargeVideoPanel,
+      );
     } else {
-      merged = mergeSavedWithDefaults({}, rect.width, rect.height, hasVideo, hasPrimary, hasSecondary);
+      merged = mergeSavedWithDefaults(
+        {},
+        rect.width,
+        rect.height,
+        hasVideo,
+        hasPrimary,
+        hasSecondary,
+        preferLargeVideoPanel,
+      );
     }
     const nextZoom = hostLayoutRef.current
       ? mergePanelZoomFromPartial(
@@ -646,7 +707,7 @@ export function ViewerCanvasLayout({
       : defaultPanelZoomState();
     applyLayout(merged, nextZoom);
     layoutInitRef.current = true;
-  }, [storageKey, hasVideo, hasPrimary, hasSecondary, applyLayout]);
+  }, [storageKey, hasVideo, hasPrimary, hasSecondary, preferLargeVideoPanel, applyLayout]);
 
   const onDrag = useCallback(
     (id: PanelId) => (_e: unknown, d: { x: number; y: number }) => {

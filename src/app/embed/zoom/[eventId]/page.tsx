@@ -5,14 +5,17 @@ import { useParams } from "next/navigation";
 import {
   joinZoomClientView,
   joinZoomComponentView,
+  updateZoomComponentVideoSize,
+  type ZoomEmbeddedClient,
   type ZoomJoinPayload,
 } from "@/lib/zoom-embedded-cdn";
 
-/** Isolated Zoom page — Client View full screen, or Component View inside iframe. */
+/** Isolated Zoom page — Component View in iframe on stage; Client View if opened directly. */
 export default function ZoomEmbedPage() {
   const params = useParams<{ eventId: string }>();
   const eventId = params.eventId;
   const rootRef = useRef<HTMLDivElement>(null);
+  const clientRef = useRef<ZoomEmbeddedClient | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +25,7 @@ export default function ZoomEmbedPage() {
     let disposed = false;
     const inIframe = window.self !== window.top;
     const root = rootRef.current;
+    let resizeObserver: ResizeObserver | null = null;
 
     async function run() {
       try {
@@ -46,7 +50,18 @@ export default function ZoomEmbedPage() {
 
         if (inIframe) {
           if (!root) return;
-          await joinZoomComponentView(root, payload);
+          const client = await joinZoomComponentView(root, payload);
+          if (disposed) return;
+          clientRef.current = client;
+
+          resizeObserver = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry || !clientRef.current) return;
+            const { width, height } = entry.contentRect;
+            if (width < 1 || height < 1) return;
+            updateZoomComponentVideoSize(clientRef.current, width, height);
+          });
+          resizeObserver.observe(root);
         } else {
           const leaveUrl = `${window.location.origin}/host/events`;
           await joinZoomClientView(payload, leaveUrl);
@@ -65,6 +80,8 @@ export default function ZoomEmbedPage() {
 
     return () => {
       disposed = true;
+      clientRef.current = null;
+      resizeObserver?.disconnect();
     };
   }, [eventId]);
 

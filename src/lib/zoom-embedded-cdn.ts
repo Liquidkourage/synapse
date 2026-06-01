@@ -1,6 +1,10 @@
 /** Zoom Meeting SDK via CDN (bundled React 18 — avoids React 19 conflict in Synapse). */
 export const ZOOM_SDK_VERSION = "6.0.2";
 
+/** Minimum panel size for Zoom gallery view (all cameras visible). */
+export const ZOOM_GALLERY_MIN_WIDTH = 720;
+export const ZOOM_GALLERY_MIN_HEIGHT = 411;
+
 const version = ZOOM_SDK_VERSION;
 
 const VENDOR_SCRIPTS = [
@@ -28,6 +32,7 @@ type ZoomEmbeddedGlobal = {
 export type ZoomEmbeddedClient = {
   init: (opts: Record<string, unknown>) => Promise<void>;
   join: (opts: Record<string, unknown>) => Promise<void>;
+  updateVideoOptions?: (opts: Record<string, unknown>) => void;
 };
 
 type ZoomClientGlobal = {
@@ -76,7 +81,7 @@ export function loadZoomEmbeddedSdk(): Promise<ZoomEmbeddedGlobal> {
 
 let clientPromise: Promise<ZoomClientGlobal> | null = null;
 
-/** Client View — full Zoom UI (open in new tab; best for host + gallery). */
+/** Client View — full Zoom UI (direct /embed URL only; not linked from stage). */
 export function loadZoomClientSdk(): Promise<ZoomClientGlobal> {
   if (!clientPromise) {
     clientPromise = (async () => {
@@ -90,13 +95,27 @@ export function loadZoomClientSdk(): Promise<ZoomClientGlobal> {
   return clientPromise;
 }
 
+export function supportsZoomGalleryView(width: number, height: number) {
+  return width >= ZOOM_GALLERY_MIN_WIDTH && height >= ZOOM_GALLERY_MIN_HEIGHT;
+}
+
 export function galleryViewSizes(width: number, height: number) {
   return {
     default: {
-      width: Math.max(720, Math.round(width)),
-      height: Math.max(411, Math.round(height)),
+      width: Math.max(1, Math.round(width)),
+      height: Math.max(1, Math.round(height)),
     },
   };
+}
+
+export function updateZoomComponentVideoSize(
+  client: ZoomEmbeddedClient,
+  width: number,
+  height: number,
+) {
+  client.updateVideoOptions?.({
+    viewSizes: galleryViewSizes(width, height),
+  });
 }
 
 export function joinZoomClientView(payload: ZoomJoinPayload, leaveUrl: string): Promise<void> {
@@ -130,7 +149,7 @@ export function joinZoomClientView(payload: ZoomJoinPayload, leaveUrl: string): 
 export async function joinZoomComponentView(
   root: HTMLElement,
   payload: ZoomJoinPayload,
-): Promise<void> {
+): Promise<ZoomEmbeddedClient> {
   const ZoomMtgEmbedded = await loadZoomEmbeddedSdk();
   const client = ZoomMtgEmbedded.createClient();
   const { width, height } = root.getBoundingClientRect();
@@ -143,6 +162,7 @@ export async function joinZoomComponentView(
     customize: {
       video: {
         isResizable: true,
+        defaultViewType: "gallery",
         viewSizes: galleryViewSizes(width, height),
       },
     },
@@ -158,4 +178,6 @@ export async function joinZoomComponentView(
     tk: "",
     zak: payload.zak ?? "",
   });
+
+  return client;
 }
