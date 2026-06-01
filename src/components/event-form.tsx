@@ -5,6 +5,7 @@ import { EventFormKindLayout } from "@/components/event-form-kind-layout";
 import { EventScheduleFields } from "@/components/event-schedule-fields";
 import { SynapseVideoRoomButton } from "@/components/synapse-video-room-button";
 import { effectiveEventKind } from "@/lib/event-kind";
+import { videoRoomModeFromEvent } from "@/lib/daily-video-mode";
 import { formatDurationHhMm, formatStartForDatetimeLocal } from "@/lib/event-schedule";
 
 export function EventCreateForm({
@@ -65,7 +66,7 @@ export function EventEditForm({
           externalUrl: event.externalUrl ?? "",
           broadcastEmbedUrl: event.broadcastEmbedUrl ?? "",
           broadcastHostOnlyJoin: event.broadcastHostOnlyJoin ? "on" : "",
-          videoRoomMode: event.broadcastStreamingMode ? "streaming" : "open",
+          videoRoomMode: videoRoomModeFromEvent(event),
           embedUrl: event.embedUrl ?? "",
           secondaryEmbedUrl: event.secondaryEmbedUrl ?? "",
           integrationType: event.integrationType ?? "",
@@ -388,7 +389,7 @@ function FormFields({
               type="radio"
               name="videoRoomMode"
               value="streaming"
-              defaultChecked={d.videoRoomMode !== "open"}
+              defaultChecked={d.videoRoomMode === "streaming"}
               className="mt-1"
             />
             <span>
@@ -410,6 +411,22 @@ function FormFields({
               <span className="font-medium text-zinc-300">Open room</span>
               <span className="mt-0.5 block text-xs text-zinc-500">
                 Anyone with the page can join the Daily room with camera/mic (classic video call).
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-400">
+            <input
+              type="radio"
+              name="videoRoomMode"
+              value="breakouts"
+              defaultChecked={d.videoRoomMode === "breakouts"}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium text-zinc-300">Meeting with breakout rooms</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">
+                Everyone joins the main room; you (host) use Daily&apos;s Breakout button to send people to team rooms
+                and bring them back. Best for trivia teams.
               </span>
             </span>
           </label>

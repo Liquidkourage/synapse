@@ -18,8 +18,12 @@ import {
   parseEventStartInTimeZone,
 } from "@/lib/event-schedule";
 import type { EventKind } from "@/generated/prisma";
+import { parseVideoRoomModeForm } from "@/lib/daily-video-mode";
+import { roomNameFromDailyRoomUrl } from "@/lib/daily-broadcast-url";
 import { deleteEventsCleanup } from "@/lib/event-delete";
 import { revalidateEventPublicPaths } from "@/lib/event-page-path";
+import { ensureDailyRoomConfig, isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
+import { dailyVideoModeFromEvent } from "@/lib/daily-video-mode";
 import { importPodcastShow, PodcastImportError, shouldBulkImportPodcast } from "@/lib/podcast-import";
 import { looksLikeRssFeedUrl } from "@/lib/podcast-url";
 
@@ -48,7 +52,7 @@ const eventFields = z.object({
   secondaryEmbedUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
   broadcastEmbedUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
   broadcastHostOnlyJoin: z.preprocess((v) => v === "on" || v === true || v === "true", z.boolean().optional()),
-  videoRoomMode: z.enum(["streaming", "open"]).optional(),
+  videoRoomMode: z.enum(["streaming", "open", "breakouts"]).optional(),
   integrationType: z.preprocess(emptyToUndef, z.string().max(80).optional()),
   instructions: z.preprocess(emptyToUndef, z.string().max(8000).optional()),
   coverImageUrl: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
@@ -86,7 +90,9 @@ export async function createEvent(formData: FormData) {
   const parsed = parseForm(formData);
   if (!parsed.success) return;
 
-  const broadcastStreamingMode = (parsed.data.videoRoomMode ?? "streaming") === "streaming";
+  const videoMode = parseVideoRoomModeForm(parsed.data.videoRoomMode);
+  const broadcastBreakoutsEnabled = videoMode === "breakouts";
+  const broadcastStreamingMode = videoMode === "streaming";
   const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
 
   const hostId =
@@ -179,8 +185,12 @@ export async function createEvent(formData: FormData) {
       embedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.embedUrl) ?? null,
       secondaryEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
       broadcastEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
-      broadcastHostOnlyJoin: eventKind === "PODCAST" ? false : (parsed.data.broadcastHostOnlyJoin ?? false),
-      broadcastStreamingMode,
+      broadcastHostOnlyJoin:
+        eventKind === "PODCAST" || broadcastBreakoutsEnabled
+          ? false
+          : (parsed.data.broadcastHostOnlyJoin ?? false),
+      broadcastStreamingMode: eventKind === "PODCAST" ? true : broadcastStreamingMode,
+      broadcastBreakoutsEnabled: eventKind === "PODCAST" ? false : broadcastBreakoutsEnabled,
       integrationType: eventKind === "PODCAST" ? null : parsed.data.integrationType || null,
       instructions: eventKind === "PODCAST" ? null : parsed.data.instructions || null,
       coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
@@ -230,7 +240,9 @@ export async function updateEvent(eventId: string, formData: FormData) {
   const parsed = parseForm(formData);
   if (!parsed.success) return;
 
-  const broadcastStreamingMode = (parsed.data.videoRoomMode ?? "streaming") === "streaming";
+  const videoMode = parseVideoRoomModeForm(parsed.data.videoRoomMode);
+  const broadcastBreakoutsEnabled = videoMode === "breakouts";
+  const broadcastStreamingMode = videoMode === "streaming";
   const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
 
   const tz = parsed.data.timezone.trim();
@@ -291,7 +303,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     }
   }
 
-  await prisma.event.update({
+  const updated = await prisma.event.update({
     where: { id: eventId },
     data: {
       eventKind,
@@ -313,8 +325,12 @@ export async function updateEvent(eventId: string, formData: FormData) {
       embedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.embedUrl) ?? null,
       secondaryEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.secondaryEmbedUrl) ?? null,
       broadcastEmbedUrl: eventKind === "PODCAST" ? null : ensureHttpUrl(parsed.data.broadcastEmbedUrl) ?? null,
-      broadcastHostOnlyJoin: eventKind === "PODCAST" ? false : (parsed.data.broadcastHostOnlyJoin ?? false),
-      broadcastStreamingMode,
+      broadcastHostOnlyJoin:
+        eventKind === "PODCAST" || broadcastBreakoutsEnabled
+          ? false
+          : (parsed.data.broadcastHostOnlyJoin ?? false),
+      broadcastStreamingMode: eventKind === "PODCAST" ? true : broadcastStreamingMode,
+      broadcastBreakoutsEnabled: eventKind === "PODCAST" ? false : broadcastBreakoutsEnabled,
       integrationType: eventKind === "PODCAST" ? null : parsed.data.integrationType || null,
       instructions: eventKind === "PODCAST" ? null : parsed.data.instructions || null,
       coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
@@ -335,6 +351,17 @@ export async function updateEvent(eventId: string, formData: FormData) {
   });
 
   if (
+    eventKind !== "PODCAST" &&
+    updated.broadcastEmbedUrl &&
+    isDailyNativeBroadcastUrl(updated.broadcastEmbedUrl)
+  ) {
+    const roomName = roomNameFromDailyRoomUrl(updated.broadcastEmbedUrl);
+    if (roomName) {
+      await ensureDailyRoomConfig(roomName, dailyVideoModeFromEvent(updated));
+    }
+  }
+
+  if (
     eventKind === "PODCAST" &&
     existing.podcastFeedUrl &&
     parsed.data.podcastShowTitle?.trim()
@@ -348,7 +375,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   }
 
   revalidatePath("/host/events");
-  revalidateEventPublicPaths(revalidatePath, existing);
+  revalidateEventPublicPaths(revalidatePath, updated);
   revalidatePath("/schedule");
   revalidatePath("/live");
   revalidatePath("/");

@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { dailyVideoModeFromEvent, type DailyVideoMode } from "@/lib/daily-video-mode";
 
 /** Built-in Synapse video uses Daily.co (free dev tier + pay-as-you-go). Docs: https://www.daily.co/pricing */
 export const SYNAPSE_VIDEO_PROVIDER = "daily" as const;
@@ -7,18 +8,52 @@ export const SYNAPSE_VIDEO_PROVIDER = "daily" as const;
 const DAILY_ROOMS = "https://api.daily.co/v1/rooms";
 
 /** Rooms we've already synced this process — POST is idempotent; bump version when sync payload changes. */
-const OWNER_BROADCAST_SYNC_VER = 2;
-const ownerBroadcastSynced = new Set<string>();
+const ROOM_CONFIG_SYNC_VER = 3;
+const roomConfigSynced = new Set<string>();
+
+function roomPropertiesForMode(mode: DailyVideoMode, cloudRecording: boolean) {
+  const base = {
+    enable_prejoin_ui: true,
+    enable_hand_raising: false,
+    enable_emoji_reactions: false,
+    ...(cloudRecording ? { enable_recording: "cloud" } : {}),
+  };
+
+  switch (mode) {
+    case "breakouts":
+      return {
+        ...base,
+        owner_only_broadcast: false,
+        enable_breakout_rooms: true,
+        enable_people_ui: true,
+      };
+    case "open":
+      return {
+        ...base,
+        owner_only_broadcast: false,
+        enable_breakout_rooms: false,
+      };
+    case "streaming":
+    default:
+      return {
+        ...base,
+        owner_only_broadcast: true,
+        enable_breakout_rooms: false,
+      };
+  }
+}
 
 /**
- * Daily "Owner only broadcast": only meeting owners (host token) may send camera/mic/screen; everyone else is audience.
- * Without this, Prebuilt shows the full camera/mic prejoin ("Are you ready to join?") to all participants.
- * @see https://www.daily.co/blog/daily-prebuilt-broadcast-call-deep-dive/
+ * Sync Daily room properties for streaming, open call, or breakout meetings.
+ * @see https://docs.daily.co/reference/rest-api/rooms/set-room-config
+ * @see https://www.daily.co/blog/daily-prebuilt-breakout-rooms-demo/
  */
-export async function ensureDailyRoomOwnerOnlyBroadcast(roomName: string): Promise<void> {
+export async function ensureDailyRoomConfig(roomName: string, mode: DailyVideoMode): Promise<void> {
   const key = process.env.DAILY_API_KEY?.trim();
-  const cacheKey = `${roomName}::sync${OWNER_BROADCAST_SYNC_VER}`;
-  if (!key || ownerBroadcastSynced.has(cacheKey)) return;
+  const cacheKey = `${roomName}::${mode}::v${ROOM_CONFIG_SYNC_VER}`;
+  if (!key || roomConfigSynced.has(cacheKey)) return;
+
+  const cloudRecording = process.env.SYNAPSE_DAILY_CLOUD_RECORDING !== "false";
 
   const res = await fetch(`${DAILY_ROOMS}/${encodeURIComponent(roomName)}`, {
     method: "POST",
@@ -27,21 +62,21 @@ export async function ensureDailyRoomOwnerOnlyBroadcast(roomName: string): Promi
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      properties: {
-        owner_only_broadcast: true,
-        /** Room-level; affects everyone. Reduces tray clutter in Prebuilt (token cannot hide all tray controls). */
-        enable_hand_raising: false,
-        enable_emoji_reactions: false,
-      },
+      properties: roomPropertiesForMode(mode, cloudRecording),
     }),
   });
 
   if (res.ok) {
-    ownerBroadcastSynced.add(cacheKey);
+    roomConfigSynced.add(cacheKey);
     return;
   }
   const detail = await res.text();
-  console.warn("[synapse-video] owner_only_broadcast sync failed", res.status, detail.slice(0, 400));
+  console.warn("[synapse-video] room config sync failed", mode, res.status, detail.slice(0, 400));
+}
+
+/** @deprecated Use ensureDailyRoomConfig(roomName, "streaming") */
+export async function ensureDailyRoomOwnerOnlyBroadcast(roomName: string): Promise<void> {
+  return ensureDailyRoomConfig(roomName, "streaming");
 }
 
 export function getSynapseVideoServerHints() {
@@ -88,8 +123,8 @@ export async function provisionDailyRoomForEvent(
   const safe = event.id.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
   const name = `synapse-${safe}-${Date.now().toString(36)}`.slice(0, 64);
 
-  /** Cloud MP4 recording (pay-as-you-go on Daily). Set SYNAPSE_DAILY_CLOUD_RECORDING=false to skip. */
   const cloudRecording = process.env.SYNAPSE_DAILY_CLOUD_RECORDING !== "false";
+  const mode = dailyVideoModeFromEvent(event);
 
   const res = await fetch(DAILY_ROOMS, {
     method: "POST",
@@ -99,14 +134,7 @@ export async function provisionDailyRoomForEvent(
     },
     body: JSON.stringify({
       name,
-      properties: {
-        enable_prejoin_ui: true,
-        /** Webinar-style: hosts use prejoin; viewers get audience UI (no full camera/mic lobby). */
-        owner_only_broadcast: true,
-        enable_hand_raising: false,
-        enable_emoji_reactions: false,
-        ...(cloudRecording ? { enable_recording: "cloud" } : {}),
-      },
+      properties: roomPropertiesForMode(mode, cloudRecording),
     }),
   });
 

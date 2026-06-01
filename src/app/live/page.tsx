@@ -45,6 +45,7 @@ export default async function LivePage() {
           broadcastEmbedUrl: live.broadcastEmbedUrl,
           broadcastHostOnlyJoin: live.broadcastHostOnlyJoin,
           broadcastStreamingMode: live.broadcastStreamingMode,
+          broadcastBreakoutsEnabled: live.broadcastBreakoutsEnabled,
           hostId: live.hostId,
           producerId: live.producerId,
         },

@@ -17,6 +17,7 @@ import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
 import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
 import { isPodcastEvent } from "@/lib/event-kind";
+import { DailyBreakoutsHostGuide } from "@/components/daily-breakouts-host-guide";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -36,6 +37,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           broadcastEmbedUrl: event.broadcastEmbedUrl,
           broadcastHostOnlyJoin: event.broadcastHostOnlyJoin,
           broadcastStreamingMode: event.broadcastStreamingMode,
+          broadcastBreakoutsEnabled: event.broadcastBreakoutsEnabled,
           hostId: event.hostId,
           producerId: event.producerId,
         },
@@ -70,12 +72,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const broadcastDescription = event.broadcastEmbedUrl
     ? event.broadcastHostOnlyJoin
       ? "Hidden from players — only the host (and staff) see the embed here."
-      : event.broadcastStreamingMode && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-        ? "Streaming layout — host on camera; players watch without joining the call."
-        : isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-          ? "Built-in Daily.co room — viewers stay on Synapse."
-          : "Live capture from your embed URL — viewers stay on Synapse."
+      : event.broadcastBreakoutsEnabled && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+        ? "Breakout rooms — join the call; host assigns team rooms from the Breakout menu in video."
+        : event.broadcastStreamingMode && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+          ? "Streaming layout — host on camera; players watch without joining the call."
+          : isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+            ? "Built-in Daily.co room — everyone can join with camera/mic."
+            : "Live capture from your embed URL — viewers stay on Synapse."
     : null;
+
+  const showBreakoutHostGuide =
+    !!event.broadcastBreakoutsEnabled &&
+    !!session?.user &&
+    session.user.id === event.hostId &&
+    isDailyNativeBroadcastUrl(event.broadcastEmbedUrl);
 
   const [messages, attendanceCount, userAttendance] = await Promise.all([
     prisma.chatMessage.findMany({
@@ -144,6 +154,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               initialJoined={!!userAttendance}
               attendanceCount={attendanceCount}
             />
+
+            {showBreakoutHostGuide ? <DailyBreakoutsHostGuide editEventId={event.id} /> : null}
 
             {event.longDescription ? (
               <section>

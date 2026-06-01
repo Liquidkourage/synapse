@@ -1,5 +1,6 @@
 import type { Session } from "next-auth";
-import { ensureDailyRoomOwnerOnlyBroadcast, isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
+import { dailyVideoModeFromEvent } from "@/lib/daily-video-mode";
+import { ensureDailyRoomConfig, isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 
 const DAILY_TOKENS = "https://api.daily.co/v1/meeting-tokens";
@@ -31,6 +32,12 @@ function canPublishVideo(
   return uid === event.hostId;
 }
 
+function isRoomOwner(event: { hostId: string }, session: Session | null): boolean {
+  const uid = session?.user?.id;
+  if (!uid) return false;
+  return uid === event.hostId;
+}
+
 /**
  * In streaming mode, never hand viewers the raw Daily room URL — it allows full camera/mic join.
  * Use null so the UI can show an error; only the host may fall back to `base` when tokens fail.
@@ -49,13 +56,14 @@ function streamingViewerUrlOrNull(
 
 /**
  * Resolves the iframe `src` for Synapse video: streaming mode mints Daily tokens so only the host
- * publishes; others get receive-only. Falls back to the stored URL if not Daily or no API key.
+ * publishes; open/breakout modes let participants join the call (required for breakout rooms).
  */
 export async function resolveDailyBroadcastEmbedUrl(
   event: {
     broadcastEmbedUrl: string | null;
     broadcastHostOnlyJoin?: boolean | null;
     broadcastStreamingMode?: boolean | null;
+    broadcastBreakoutsEnabled?: boolean | null;
     hostId: string;
     producerId: string | null;
   },
@@ -65,7 +73,8 @@ export async function resolveDailyBroadcastEmbedUrl(
   if (!base) return null;
 
   const hostOnly = event.broadcastHostOnlyJoin ?? false;
-  const streaming = event.broadcastStreamingMode ?? true;
+  const mode = dailyVideoModeFromEvent(event);
+  const streaming = mode === "streaming";
 
   try {
     if (
@@ -83,43 +92,42 @@ export async function resolveDailyBroadcastEmbedUrl(
 
     const isDaily = isDailyNativeBroadcastUrl(base);
 
-    if (!streaming || !isDaily) {
+    if (!isDaily) {
       return base;
     }
 
     const key = process.env.DAILY_API_KEY?.trim();
     const roomName = roomNameFromDailyRoomUrl(base);
     const publish = canPublishVideo(event, session);
+    const owner = isRoomOwner({ hostId: event.hostId }, session);
 
     if (!key || !roomName) {
       return streamingViewerUrlOrNull(publish, streaming, isDaily, base);
     }
 
-    /** Daily Prebuilt defaults to a full camera/mic lobby for all peers unless the room is in owner-only broadcast mode. */
-    await ensureDailyRoomOwnerOnlyBroadcast(roomName);
+    await ensureDailyRoomConfig(roomName, mode);
 
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
     const display =
       session?.user?.name?.trim() ||
       session?.user?.email?.trim() ||
-      (publish ? "Host" : "Viewer");
+      (owner ? "Host" : "Guest");
 
     /** Per-token Prebuilt UI — see https://docs.daily.co/reference/rest-api/meeting-tokens/config */
     const properties: Record<string, unknown> = {
       room_name: roomName,
       exp,
       user_name: display,
-      is_owner: publish,
-      enable_prejoin_ui: publish,
-      start_video_off: !publish,
-      start_audio_off: !publish,
-      enable_screenshare: publish,
-      enable_recording_ui: publish,
+      is_owner: owner,
+      enable_prejoin_ui: true,
+      start_video_off: !owner,
+      start_audio_off: !owner,
+      enable_screenshare: owner,
+      enable_recording_ui: owner,
     };
 
-    if (!publish) {
+    if (streaming && !owner) {
       properties.permissions = { canSend: false };
-      /** Only documented on meeting tokens; hides CC tray button for viewers. */
       properties.enable_live_captions_ui = false;
     }
 
@@ -161,7 +169,7 @@ export async function resolveDailyBroadcastEmbedUrl(
     console.error("[daily-broadcast-url] unexpected", e);
     const isDaily = isDailyNativeBroadcastUrl(event.broadcastEmbedUrl ?? "");
     const publish = canPublishVideo(event, session);
-    const streaming = event.broadcastStreamingMode ?? true;
+    const streaming = dailyVideoModeFromEvent(event) === "streaming";
     return streamingViewerUrlOrNull(publish, streaming, isDaily, event.broadcastEmbedUrl ?? "");
   }
 }

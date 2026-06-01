@@ -120,6 +120,8 @@ model Event {
   broadcastHostOnlyJoin Boolean @default(false)
   /// When true (default), Daily embeds use meeting tokens: only the event host can send video/audio; everyone else is watch-only. When false, everyone gets the plain room URL (open participation).
   broadcastStreamingMode Boolean @default(true)
+  /// Daily Prebuilt breakout rooms: host assigns participants to team rooms and returns them to main (requires open participation, not streaming).
+  broadcastBreakoutsEnabled Boolean @default(false)
   integrationType String?
   instructions    String?
   /// Twitch channel login (lowercase, e.g. triviaworkshop) for merged chat — optional; run scripts/twitch-chat-bridge.mjs with ingest secret

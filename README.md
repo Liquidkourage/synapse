@@ -168,7 +168,7 @@ Live host video is **built in** via [Daily.co](https://www.daily.co/) (free tier
 - Saving a **new** event auto-creates a Daily room (unless you already pasted a custom video URL, or you set `SYNAPSE_VIDEO_AUTO_ROOM=false`).
 - **Edit event:** use **Create new Synapse video room** if you need a fresh room.
 - **Override:** paste any other iframe-safe live URL in the same field if you use a different provider.
-- **Streaming vs open room (default: streaming):** radio on the event form. **Streaming** mints Daily **meeting tokens** so only the **event host** can publish video/audio; **players get watch-only** (no camera/mic join). **Open room** uses the plain room URL for everyone (classic video call).
+- **Video room style (Daily):** **Streaming** (default) — host on camera, players watch-only. **Open room** — everyone joins with camera/mic. **Meeting with breakout rooms** — everyone joins the main room; the **host** uses Daily Prebuilt’s **Breakout** control to create team rooms, assign players, and end breakouts (see [Daily’s breakout guide](https://www.daily.co/blog/daily-prebuilt-breakout-rooms-demo/)). Requires `DAILY_API_KEY`; do not use “Hide video from non-hosts” with breakouts.
 - **Hide video from players (optional):** checkbox — iframe only for host / assigned producer / admin; others see a notice. UI gating only; combine with Daily private rooms for stronger control.
 
 Implementation: `src/lib/synapse-video.ts`, `src/lib/daily-broadcast-url.ts`, `src/lib/broadcast-access.ts`, `POST /api/host/events/[eventId]/synapse-video`.
