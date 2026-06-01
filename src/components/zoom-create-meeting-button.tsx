@@ -24,15 +24,22 @@ export function ZoomCreateMeetingButton({
           setMessage(null);
           try {
             const res = await fetch(`/api/host/events/${eventId}/zoom-meeting`, { method: "POST" });
-            const data = (await res.json()) as { ok?: boolean; error?: string };
+            const text = await res.text();
+            let data: { ok?: boolean; error?: string } = {};
+            try {
+              data = text ? (JSON.parse(text) as { ok?: boolean; error?: string }) : {};
+            } catch {
+              setMessage(text.slice(0, 200) || `Server error (${res.status})`);
+              return;
+            }
             if (!res.ok) {
-              setMessage(data.error ?? "Failed");
+              setMessage(data.error ?? `Failed (${res.status})`);
             } else {
               setMessage("Zoom meeting ready.");
               router.refresh();
             }
-          } catch {
-            setMessage("Request failed");
+          } catch (e) {
+            setMessage(e instanceof Error ? e.message : "Request failed");
           } finally {
             setPending(false);
           }

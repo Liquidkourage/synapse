@@ -123,7 +123,6 @@ export async function provisionZoomMeetingForEvent(
       join_before_host: true,
       waiting_room: false,
       auto_recording: "none",
-      focus_mode: false,
       breakout_room: {
         enable: opts.breakouts,
       },
@@ -149,7 +148,27 @@ export async function provisionZoomMeetingForEvent(
     return { ok: false, error: `Zoom API (${res.status}): ${raw.slice(0, 500)}` };
   }
 
-  const data = JSON.parse(raw) as ZoomMeetingCreateResponse;
+  /** PATCH /meetings/{id} returns 204 No Content — no JSON body. */
+  if (isUpdate && (res.status === 204 || !raw.trim())) {
+    await prisma.event.update({
+      where: { id: eventId },
+      data: {
+        broadcastVideoProvider: "zoom",
+        broadcastEmbedUrl: null,
+        broadcastBreakoutsEnabled: opts.breakouts,
+        broadcastStreamingMode: false,
+        broadcastHostOnlyJoin: false,
+      },
+    });
+    return { ok: true };
+  }
+
+  let data: ZoomMeetingCreateResponse;
+  try {
+    data = JSON.parse(raw) as ZoomMeetingCreateResponse;
+  } catch {
+    return { ok: false, error: "Zoom API returned an unexpected empty response." };
+  }
   const meetingNumber = String(data.id).replace(/\D/g, "");
 
   await prisma.event.update({
