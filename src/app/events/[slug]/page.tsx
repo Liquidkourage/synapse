@@ -9,6 +9,7 @@ import { EventStageShell } from "@/components/event-stage-shell";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { getBroadcastEmbedPageProps } from "@/lib/broadcast-embed-props";
 import { isZoomNativeEvent } from "@/lib/zoom-meetings";
+import { eventHasBroadcastVideo } from "@/lib/event-broadcast-video";
 import { ZoomBreakoutsHostGuide } from "@/components/zoom-breakouts-host-guide";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
@@ -33,7 +34,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const eff = getEffectiveEventStatus(event);
 
   const hostForEmbed = await getRequestHostnameForEmbeds();
-  const broadcastEmbeds = event.broadcastEmbedUrl
+  const hasBroadcastVideo = eventHasBroadcastVideo(event);
+  const isZoomPending =
+    (event.broadcastVideoProvider === "zoom" || isZoomNativeEvent(event)) &&
+    !event.zoomMeetingNumber;
+
+  const broadcastEmbeds = hasBroadcastVideo
     ? await getBroadcastEmbedPageProps(
         {
           id: event.id,
@@ -81,19 +87,21 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       ? "Live video"
       : "Host video (embed)";
 
-  const broadcastDescription = event.broadcastEmbedUrl
-    ? event.broadcastHostOnlyJoin
-      ? "Hidden from players — only the host (and staff) see the embed here."
-      : isZoomNativeEvent(event) && event.broadcastBreakoutsEnabled
-        ? "Zoom meeting with breakout rooms — host can broadcast voice to all teams."
-        : event.broadcastBreakoutsEnabled && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-          ? "Host stays on screen and audio at the top; use the lower panel for team breakouts."
-        : event.broadcastStreamingMode && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-          ? "Streaming layout — host on camera; players watch without joining the call."
-          : isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-            ? "Built-in Daily.co room — everyone can join with camera/mic."
-            : "Live capture from your embed URL — viewers stay on Synapse."
-    : null;
+  const broadcastDescription = isZoomPending
+    ? "Zoom meeting not created yet — edit the event, confirm Zoom + breakouts, save again, or use Create / sync Zoom meeting."
+    : hasBroadcastVideo
+      ? event.broadcastHostOnlyJoin
+        ? "Hidden from players — only the host (and staff) see the embed here."
+        : isZoomNativeEvent(event) && event.broadcastBreakoutsEnabled
+          ? "Zoom meeting with breakout rooms — host can broadcast voice to all teams."
+          : event.broadcastBreakoutsEnabled && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+            ? "Host stays on screen and audio at the top; use the lower panel for team breakouts."
+            : event.broadcastStreamingMode && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+              ? "Streaming layout — host on camera; players watch without joining the call."
+              : isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
+                ? "Built-in Daily.co room — everyone can join with camera/mic."
+                : "Live capture from your embed URL — viewers stay on Synapse."
+      : null;
 
   const showDailyBreakoutHostGuide =
     !!event.broadcastBreakoutsEnabled &&
@@ -241,7 +249,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         storageKey={`event-${event.slug}`}
         broadcastLabel={broadcastLabel}
         broadcastDescription={broadcastDescription}
-        broadcastEmbedUrl={event.broadcastEmbedUrl}
+        broadcastEmbedUrl={hasBroadcastVideo ? event.broadcastEmbedUrl ?? "zoom" : null}
         broadcastIframeSrc={broadcastEmbeds.broadcastIframeSrc}
         broadcastStageIframeSrc={broadcastEmbeds.broadcastStageIframeSrc}
         broadcastMeetingIframeSrc={broadcastEmbeds.broadcastMeetingIframeSrc}

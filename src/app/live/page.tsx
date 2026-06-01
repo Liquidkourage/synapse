@@ -8,6 +8,7 @@ import { EventStageShell } from "@/components/event-stage-shell";
 import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { getBroadcastEmbedPageProps } from "@/lib/broadcast-embed-props";
 import { isZoomNativeEvent } from "@/lib/zoom-meetings";
+import { eventHasBroadcastVideo } from "@/lib/event-broadcast-video";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
@@ -148,7 +149,9 @@ export default async function LivePage() {
           }}
           storageKey={`live-${live.slug}`}
           broadcastLabel={broadcastLabel}
-          broadcastEmbedUrl={live.broadcastEmbedUrl}
+          broadcastEmbedUrl={
+            live && eventHasBroadcastVideo(live) ? live.broadcastEmbedUrl ?? "zoom" : live?.broadcastEmbedUrl ?? null
+          }
           broadcastIframeSrc={broadcastEmbeds.broadcastIframeSrc}
           broadcastStageIframeSrc={broadcastEmbeds.broadcastStageIframeSrc}
           broadcastMeetingIframeSrc={broadcastEmbeds.broadcastMeetingIframeSrc}
