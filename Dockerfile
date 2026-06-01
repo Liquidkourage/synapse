@@ -9,15 +9,15 @@ RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 # postinstall runs `prisma generate` — schema must exist before npm ci
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install all deps (incl. dev) so `next build` has TypeScript, eslint, etc.
-RUN npm ci
+# @zoom/meetingsdk peer-pins react@18; Synapse uses react@19 (see .npmrc)
+RUN npm ci --legacy-peer-deps
 
 COPY . .
 
