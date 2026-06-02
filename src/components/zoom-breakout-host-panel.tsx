@@ -101,8 +101,8 @@ export function ZoomBreakoutHostPanel({
         </p>
       ) : (
         <p className="mt-1 text-xs text-zinc-500">
-          Top panel = your camera (Daily). Bottom = Zoom — teams join breakouts there. Use{" "}
-          <strong className="text-zinc-400">Broadcast → Broadcast voice</strong> in Zoom so all rooms hear you.
+          Top panel = your camera and mic (everyone hears you here). Bottom = Zoom for breakouts. The embedded Zoom
+          client often has no <strong className="text-zinc-400">Broadcast</strong> menu — that is normal.
         </p>
       )}
 
@@ -129,6 +129,7 @@ export function ZoomBreakoutHostPanel({
           )}
         </li>
         <li>Assign players to rooms in Zoom if needed, then click Open breakouts.</li>
+        <li>While teams are in rooms, keep your mic on the top (Daily) panel — players still see that stream.</li>
         <li>When done, Close breakouts to bring everyone back to the main session.</li>
       </ol>
 
@@ -174,10 +175,9 @@ export function ZoomBreakoutHostPanel({
       ) : null}
 
       <p className="mt-3 text-[11px] text-zinc-600">
-        If Create rooms fails: confirm the event uses <strong className="text-zinc-500">Meeting with breakout rooms</strong>
-        , click <strong className="text-zinc-500">Create / sync Zoom meeting</strong>, then leave and rejoin the video
-        panel. For voice in all rooms (after breakouts are open): Zoom portal → Settings → Meeting → Breakout room →
-        Broadcast voice to breakout rooms.
+        Optional: in the full Zoom desktop app, after breakouts are open, open <strong className="text-zinc-500">Breakout
+        Rooms</strong> and look for broadcast voice there. Enable it under zoom.us → Settings → Meeting → Breakout room.
+        Synapse’s in-browser Zoom panel may not show that control; use the top Daily panel for host audio instead.
       </p>
 
       {editEventId ? (
