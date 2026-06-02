@@ -147,10 +147,19 @@ export function ZoomBreakoutHostPanel({
         </button>
       </div>
 
-      {status ? <p className="mt-2 text-xs text-zinc-400">{status}</p> : null}
+      {status ? (
+        <p
+          className={`mt-2 text-xs ${status.startsWith("Error:") ? "text-amber-300/90" : "text-zinc-400"}`}
+        >
+          {status}
+        </p>
+      ) : null}
 
       <p className="mt-3 text-[11px] text-zinc-600">
-        Enable &quot;Broadcast voice to breakout rooms&quot; in Zoom web portal → Settings → Meeting → Breakout room.
+        If Create rooms fails: confirm the event uses <strong className="text-zinc-500">Meeting with breakout rooms</strong>
+        , click <strong className="text-zinc-500">Create / sync Zoom meeting</strong>, then leave and rejoin the video
+        panel. For voice in all rooms (after breakouts are open): Zoom portal → Settings → Meeting → Breakout room →
+        Broadcast voice to breakout rooms.
       </p>
 
       {editEventId ? (

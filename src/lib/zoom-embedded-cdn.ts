@@ -22,6 +22,8 @@ export type ZoomJoinPayload = {
   customerKey?: string;
   role?: 0 | 1;
   zak?: string | null;
+  /** Event uses Zoom breakout rooms — enables SDK breakout APIs in init(). */
+  breakoutsEnabled?: boolean;
 };
 
 type ZoomUser = {
@@ -326,6 +328,7 @@ export async function joinZoomClientView(
           disablePictureInPicture: true,
           disableZoomLogo: true,
           videoHeader: true,
+          isSupportBreakout: payload.breakoutsEnabled === true,
           success: () => {
             ZoomMtg.join({
               signature: payload.signature,
