@@ -1,46 +1,32 @@
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
-import { isHostOrAbove } from "@/lib/rbac";
-import { EventCreateForm } from "@/components/event-form";
-import { getSynapseVideoServerHints } from "@/lib/synapse-video";
-import { getHostZoomStatusForUser } from "@/lib/host-zoom-status";
+import Link from "next/link";
+import { LiveVideoRouteChooser } from "@/components/live-video-route-chooser";
+import { getHostNewEventPageContext } from "@/lib/host-new-event-page";
 
-export default async function NewHostEventPage({
+export default async function NewHostEventChooserPage({
   searchParams,
 }: {
   searchParams: Promise<{ podcastError?: string }>;
 }) {
+  const { nativeVideoAvailable, zoomOAuthConfigured, hostZoomConnected } = await getHostNewEventPageContext();
   const { podcastError } = await searchParams;
-  const session = await auth();
-  if (!session?.user || !isHostOrAbove(session.user.role)) redirect("/login");
-
-  const videoHints = getSynapseVideoServerHints();
-  const zoomStatus = await getHostZoomStatusForUser(session.user.id);
-
-  let hostOptions: { id: string; label: string }[] | undefined;
-  if (session.user.role === "ADMIN" || session.user.role === "PRODUCER") {
-    const hosts = await prisma.user.findMany({
-      where: { role: { in: ["HOST", "PRODUCER", "ADMIN"] } },
-      orderBy: { email: "asc" },
-    });
-    hostOptions = hosts.map((u) => ({ id: u.id, label: u.name ?? u.email }));
-  }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-white">New event</h1>
+      <div>
+        <Link href="/host/events" className="text-xs text-zinc-500 hover:text-zinc-300">
+          ← Your events
+        </Link>
+        <h1 className="mt-2 text-2xl font-semibold text-white">New live event — choose video route</h1>
+      </div>
       {podcastError ? (
         <p className="rounded-xl border border-amber-500/30 bg-amber-950/25 px-4 py-3 text-sm text-amber-200/90">
           {podcastError}
         </p>
       ) : null}
-      <EventCreateForm
-        hostOptions={hostOptions}
-        nativeVideoAvailable={videoHints.nativeVideoAvailable}
-        autoRoomOnCreate={videoHints.autoRoomOnCreate}
-        zoomOAuthConfigured={zoomStatus.zoomOAuthConfigured}
-        hostZoomConnected={zoomStatus.hostZoomConnected}
+      <LiveVideoRouteChooser
+        nativeVideoAvailable={nativeVideoAvailable}
+        zoomOAuthConfigured={zoomOAuthConfigured}
+        hostZoomConnected={hostZoomConnected}
       />
     </div>
   );
