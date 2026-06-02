@@ -95,8 +95,9 @@ export default async function HostZoomSettingsPage({
             >
               Zoom Marketplace → your app → Scopes
             </a>
-            , enable <code className="text-zinc-400">user:read:zak</code> (required to host from Synapse), then
-            disconnect and reconnect here.
+            , enable <code className="text-zinc-400">user:read:zak</code> and{" "}
+            <code className="text-zinc-400">user:read:token</code> (required to host from Synapse), then disconnect
+            and reconnect here.
           </li>
           <li>In Zoom web portal → Settings → Meeting, enable Breakout room.</li>
           <li>Enable &quot;Broadcast voice to breakout rooms&quot; (Zoom 5.12+).</li>

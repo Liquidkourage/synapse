@@ -39,8 +39,8 @@ export function zoomZakErrorMessage(result: Extract<FetchZoomZakResult, { ok: fa
     case "zak_denied":
       return (
         "Zoom is connected but Synapse cannot obtain a host token (ZAK). " +
-        "In the Zoom Marketplace app for this site, enable the user:read:zak scope, save the app, " +
-        "then use Disconnect and Connect again on this page."
+        "In Zoom Marketplace → your app → Scopes, enable user:read:zak and user:read:token, save the app, " +
+        "then Disconnect and Connect again on this page so a new token is issued."
       );
     default:
       return "Could not obtain a Zoom host token. Try disconnecting and reconnecting Zoom, then reload.";
@@ -54,8 +54,8 @@ export async function fetchZoomHostZak(hostUserId: string): Promise<FetchZoomZak
   }
 
   const endpoints = [
-    "https://api.zoom.us/v2/users/me/token?type=zak",
     "https://api.zoom.us/v2/users/me/zak",
+    "https://api.zoom.us/v2/users/me/token?type=zak&ttl=7200",
   ] as const;
 
   let lastDetail: string | undefined;
@@ -80,7 +80,10 @@ export async function fetchZoomHostZak(hostUserId: string): Promise<FetchZoomZak
     lastDetail = body.slice(0, 300);
     console.warn("[zoom-meetings] ZAK fetch failed", res.status, url, lastDetail);
 
-    if (res.status === 401 || res.status === 403) {
+    const scopeDenied =
+      res.status === 400 &&
+      (body.includes("does not contain scopes") || body.includes('"code":4711'));
+    if (res.status === 401 || res.status === 403 || scopeDenied) {
       return { ok: false, reason: "zak_denied", detail: lastDetail };
     }
   }
