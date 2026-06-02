@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Session } from "next-auth";
 import { BreakoutDualVideo } from "@/components/breakout-dual-video";
 import { BroadcastEmbed, BROADCAST_IFRAME_ALLOW } from "@/components/broadcast-embed";
+import { ZoomBreakoutDualVideo } from "@/components/zoom-breakout-dual-video";
 import { ZoomMeetingEmbed } from "@/components/zoom-meeting-embed";
 import { BroadcastRestrictedNotice } from "@/components/broadcast-restricted-notice";
 import { MobileViewerTabs } from "@/components/mobile-viewer-tabs";
@@ -110,9 +111,23 @@ export function EventViewerPanels({
   const hasBreakoutDual =
     broadcastBreakoutDual && !!(broadcastStageIframeSrc || broadcastMeetingIframeSrc);
 
+  const hasZoomBreakoutDual =
+    !!broadcastZoomEventId &&
+    broadcastBreakoutDual &&
+    broadcastViewerIsHost &&
+    !!broadcastStageIframeSrc;
+
+  const zoomIframeId = broadcastZoomEventId ? `synapse-zoom-bo-${broadcastZoomEventId}` : undefined;
+
   const videoSlot =
-    hasVideo && broadcastZoomEventId ? (
-      <ZoomMeetingEmbed eventId={broadcastZoomEventId} fill />
+    hasVideo && hasZoomBreakoutDual && broadcastZoomEventId ? (
+      <ZoomBreakoutDualVideo stageSrc={broadcastStageIframeSrc!} zoomEventId={broadcastZoomEventId} />
+    ) : hasVideo && broadcastZoomEventId ? (
+      <ZoomMeetingEmbed
+        eventId={broadcastZoomEventId}
+        fill
+        iframeId={broadcastViewerIsHost ? zoomIframeId : undefined}
+      />
     ) : hasVideo && hasBreakoutDual ? (
       <BreakoutDualVideo
         stageSrc={broadcastStageIframeSrc}

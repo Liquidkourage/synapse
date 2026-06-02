@@ -20,6 +20,7 @@ import {
 import type { EventKind } from "@/generated/prisma";
 import { parseVideoRoomModeForm } from "@/lib/daily-video-mode";
 import { parseBroadcastVideoProviderForm } from "@/lib/broadcast-video-provider";
+import { parseBreakoutTeamNamesFromForm } from "@/lib/breakout-teams";
 import { provisionZoomMeetingForEvent } from "@/lib/zoom-meetings";
 import { roomNameFromDailyRoomUrl } from "@/lib/daily-broadcast-url";
 import { deleteEventsCleanup } from "@/lib/event-delete";
@@ -69,6 +70,7 @@ const eventFields = z.object({
   twitchChannelLogin: z.preprocess(emptyToUndef, z.string().max(80).optional()),
   venmoHandle: z.preprocess(emptyToUndef, z.string().max(60).optional()),
   eventKind: z.enum(["LIVE_INTERACTIVE", "PODCAST"]).optional(),
+  breakoutTeamNames: z.preprocess(emptyToUndef, z.string().max(8000).optional()),
 }).superRefine((data, ctx) => {
   const kind = data.eventKind ?? "LIVE_INTERACTIVE";
   if (kind === "PODCAST" && !data.podcastEmbedUrl?.trim()) {
@@ -98,6 +100,10 @@ export async function createEvent(formData: FormData) {
   const broadcastStreamingMode = videoMode === "streaming";
   const broadcastVideoProvider = parseBroadcastVideoProviderForm(parsed.data.broadcastVideoProvider);
   const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
+  const breakoutTeamNames =
+    eventKind !== "PODCAST" && broadcastBreakoutsEnabled
+      ? parseBreakoutTeamNamesFromForm(parsed.data.breakoutTeamNames)
+      : [];
 
   const hostId =
     session.user.role === "ADMIN" || session.user.role === "PRODUCER"
@@ -199,6 +205,7 @@ export async function createEvent(formData: FormData) {
           : (parsed.data.broadcastHostOnlyJoin ?? false),
       broadcastStreamingMode: eventKind === "PODCAST" ? true : broadcastStreamingMode,
       broadcastBreakoutsEnabled: eventKind === "PODCAST" ? false : broadcastBreakoutsEnabled,
+      breakoutTeamNames,
       integrationType: eventKind === "PODCAST" ? null : parsed.data.integrationType || null,
       instructions: eventKind === "PODCAST" ? null : parsed.data.instructions || null,
       coverImageUrl: ensureHttpUrl(parsed.data.coverImageUrl) ?? null,
@@ -265,6 +272,10 @@ export async function updateEvent(eventId: string, formData: FormData) {
   const broadcastStreamingMode = videoMode === "streaming";
   const broadcastVideoProvider = parseBroadcastVideoProviderForm(parsed.data.broadcastVideoProvider);
   const eventKind = (parsed.data.eventKind ?? "LIVE_INTERACTIVE") as EventKind;
+  const breakoutTeamNames =
+    eventKind !== "PODCAST" && broadcastBreakoutsEnabled
+      ? parseBreakoutTeamNamesFromForm(parsed.data.breakoutTeamNames)
+      : [];
 
   const tz = parsed.data.timezone.trim();
   const durationInput = eventKind === "PODCAST" ? "0:15" : parsed.data.duration;
@@ -356,6 +367,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
           : (parsed.data.broadcastHostOnlyJoin ?? false),
       broadcastStreamingMode: eventKind === "PODCAST" ? true : broadcastStreamingMode,
       broadcastBreakoutsEnabled: eventKind === "PODCAST" ? false : broadcastBreakoutsEnabled,
+      breakoutTeamNames,
       ...(broadcastVideoProvider !== "zoom"
         ? {
             zoomMeetingId: null,

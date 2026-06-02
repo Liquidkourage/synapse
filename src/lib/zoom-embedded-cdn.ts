@@ -46,6 +46,9 @@ type ZoomClientGlobal = {
   operateSpotlight?: (opts: Record<string, unknown>) => void;
   operatePin?: (opts: Record<string, unknown>) => void;
   getPinList?: (opts: Record<string, unknown>) => number[] | void;
+  createBreakoutRoom?: (opts: Record<string, unknown>) => void;
+  openBreakoutRooms?: (opts: Record<string, unknown>) => void;
+  closeBreakoutRooms?: (opts: Record<string, unknown>) => void;
   inMeetingServiceListener?: (event: string, handler: (...args: unknown[]) => void) => void;
   i18n?: ZoomI18n;
 };

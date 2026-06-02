@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { installSynapseZoomBreakoutMessageListener } from "@/lib/zoom-breakout-embed";
 import {
   joinZoomClientView,
   resetZoomJoinState,
@@ -28,6 +29,7 @@ export default function ZoomEmbedPage() {
   const eventId = params.eventId;
   const [error, setError] = useState<string | null>(null);
   const joinedRef = useRef(false);
+  const breakoutListenerRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!eventId || joinedRef.current) return;
@@ -66,7 +68,11 @@ export default function ZoomEmbedPage() {
 
         await joinZoomClientView(payload, leaveUrl);
 
-        if (!disposed) setError(null);
+        if (!disposed) {
+          breakoutListenerRef.current?.();
+          breakoutListenerRef.current = installSynapseZoomBreakoutMessageListener();
+          setError(null);
+        }
       } catch (e) {
         joinedRef.current = false;
         if (!disposed) {
@@ -80,6 +86,8 @@ export default function ZoomEmbedPage() {
     return () => {
       disposed = true;
       joinedRef.current = false;
+      breakoutListenerRef.current?.();
+      breakoutListenerRef.current = null;
       void resetZoomJoinState();
     };
   }, [eventId]);

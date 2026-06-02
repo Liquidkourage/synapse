@@ -130,6 +130,10 @@ model Event {
   broadcastStreamingMode Boolean @default(true)
   /// Daily Prebuilt breakout rooms: host assigns participants to team rooms and returns them to main (requires open participation, not streaming).
   broadcastBreakoutsEnabled Boolean @default(false)
+  /// Preset Zoom breakout room names, e.g. ["Team A","Team B"] — edited on event form.
+  breakoutTeamNames Json @default("[]")
+  /// Daily.co host-only stage URL for Zoom+breakout shows (camera here; Zoom below for teams).
+  zoomHostStageRoomUrl String?
   /// Live video provider: daily (built-in), zoom (host OAuth), custom (broadcastEmbedUrl only).
   broadcastVideoProvider String @default("daily")
   /// Zoom Meeting SDK — created on the event host's connected Zoom account.

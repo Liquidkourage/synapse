@@ -51,6 +51,7 @@ export default async function LivePage() {
           broadcastBreakoutsEnabled: live.broadcastBreakoutsEnabled,
           broadcastVideoProvider: live.broadcastVideoProvider,
           zoomMeetingNumber: live.zoomMeetingNumber,
+          zoomHostStageRoomUrl: live.zoomHostStageRoomUrl,
           hostId: live.hostId,
           producerId: live.producerId,
         },

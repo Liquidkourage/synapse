@@ -10,7 +10,8 @@ import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { getBroadcastEmbedPageProps } from "@/lib/broadcast-embed-props";
 import { isZoomNativeEvent } from "@/lib/zoom-meetings";
 import { eventHasBroadcastVideo } from "@/lib/event-broadcast-video";
-import { ZoomBreakoutsHostGuide } from "@/components/zoom-breakouts-host-guide";
+import { breakoutTeamNamesFromDb } from "@/lib/breakout-teams";
+import { ZoomBreakoutHostPanel } from "@/components/zoom-breakout-host-panel";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
 import { getGameEmbedVisibility } from "@/lib/game-embed-access";
@@ -49,6 +50,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           broadcastBreakoutsEnabled: event.broadcastBreakoutsEnabled,
           broadcastVideoProvider: event.broadcastVideoProvider,
           zoomMeetingNumber: event.zoomMeetingNumber,
+          zoomHostStageRoomUrl: event.zoomHostStageRoomUrl,
           hostId: event.hostId,
           producerId: event.producerId,
         },
@@ -89,10 +91,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
   const broadcastDescription = isZoomPending
     ? "Zoom meeting not created yet — edit the event, confirm Zoom + breakouts, save again, or use Create / sync Zoom meeting."
-    : hasBroadcastVideo && isZoomNativeEvent(event)
+      : hasBroadcastVideo && isZoomNativeEvent(event)
       ? event.broadcastHostOnlyJoin
         ? "Hidden from players — only the host (and staff) see the embed here."
-        : null
+        : event.broadcastBreakoutsEnabled
+          ? "Host: camera on the top panel; Zoom breakouts below. Guests see Zoom only."
+          : null
       : hasBroadcastVideo
         ? event.broadcastHostOnlyJoin
           ? "Hidden from players — only the host (and staff) see the embed here."
@@ -185,7 +189,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               attendanceCount={attendanceCount}
             />
 
-            {showZoomBreakoutHostGuide ? <ZoomBreakoutsHostGuide editEventId={event.id} /> : null}
+            {showZoomBreakoutHostGuide ? (
+              <ZoomBreakoutHostPanel
+                eventId={event.id}
+                teamNames={breakoutTeamNamesFromDb(event.breakoutTeamNames)}
+                editEventId={event.id}
+                stageAvailable={!!event.zoomHostStageRoomUrl}
+              />
+            ) : null}
             {showDailyBreakoutHostGuide ? <DailyBreakoutsHostGuide editEventId={event.id} /> : null}
 
             {event.longDescription ? (

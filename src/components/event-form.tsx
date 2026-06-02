@@ -8,6 +8,7 @@ import { SynapseVideoRoomButton } from "@/components/synapse-video-room-button";
 import { ZoomCreateMeetingButton } from "@/components/zoom-create-meeting-button";
 import { broadcastVideoProviderFromEvent } from "@/lib/broadcast-video-provider";
 import { effectiveEventKind } from "@/lib/event-kind";
+import { breakoutTeamNamesFromDb, breakoutTeamNamesToFormValue } from "@/lib/breakout-teams";
 import { videoRoomModeFromEvent } from "@/lib/daily-video-mode";
 import { formatDurationHhMm, formatStartForDatetimeLocal } from "@/lib/event-schedule";
 
@@ -98,6 +99,7 @@ export function EventEditForm({
           recurrenceNote: event.recurrenceNote ?? "",
           twitchChannelLogin: event.twitchChannelLogin ?? "",
           venmoHandle: event.venmoHandle ?? "",
+          breakoutTeamNames: breakoutTeamNamesToFormValue(breakoutTeamNamesFromDb(event.breakoutTeamNames)),
         }}
       />
       <button
@@ -486,6 +488,26 @@ function FormFields({
             </span>
           </label>
         </fieldset>
+
+        {videoProvider === "zoom" ? (
+          <div className="mt-3">
+            <label className="block text-sm text-zinc-400" htmlFor="breakoutTeamNames">
+              Breakout team names
+            </label>
+            <p className="mt-1 text-xs text-zinc-600">
+              One team per line (e.g. Team A, Team B). Used when the host clicks Create rooms on the event page. Save the
+              event, then Create / sync Zoom meeting.
+            </p>
+            <textarea
+              id="breakoutTeamNames"
+              name="breakoutTeamNames"
+              rows={5}
+              defaultValue={d.breakoutTeamNames ?? ""}
+              placeholder={"Team A\nTeam B\nTeam C"}
+              className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white"
+            />
+          </div>
+        ) : null}
 
         <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm text-zinc-400">
           <input

@@ -132,6 +132,22 @@ async function mintDailyEmbedUrl(
   }
 }
 
+/** Host-only Daily stage embed (streaming / owner broadcast) for Zoom breakout dual layout. */
+export async function resolveZoomHostStageEmbedUrl(
+  stageRoomUrl: string | null,
+  displayName: string,
+): Promise<string | null> {
+  if (!stageRoomUrl) return null;
+  const roomName = roomNameFromDailyRoomUrl(stageRoomUrl);
+  if (!roomName) return null;
+  return mintDailyEmbedUrl(stageRoomUrl, roomName, {
+    display: displayName,
+    owner: true,
+    publish: true,
+    watchOnly: false,
+  });
+}
+
 /**
  * Resolves iframe URL(s) for Synapse video. Breakout events use a pinned host stage (always visible)
  * plus the meeting room where teams join breakouts.
