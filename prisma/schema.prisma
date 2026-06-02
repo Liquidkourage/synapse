@@ -50,6 +50,7 @@ model User {
   producedSeries RecurrenceSeries[] @relation("SeriesProducer")
 
   chatMessages ChatMessage[]
+  announcementsCreated EventAnnouncement[] @relation("EventAnnouncementAuthor")
 
   notificationPref NotificationPreference?
   subscriptions    SubscriptionPlaceholder[]
@@ -172,9 +173,25 @@ model Event {
 
   archiveEntries     ArchiveEntry[]
   chatMessages       ChatMessage[]
+  announcements      EventAnnouncement[]
   attendees          EventAttendance[]
   featuredAsSiteLive     SiteSettings? @relation("SiteFeaturedLive")
   featuredAsSitePodcast  SiteSettings? @relation("SiteFeaturedPodcast")
+}
+
+model EventAnnouncement {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  body      String
+  pinned    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  createdById String?
+  createdBy   User?   @relation("EventAnnouncementAuthor", fields: [createdById], references: [id])
+
+  @@index([eventId, createdAt])
+  @@index([eventId, pinned])
 }
 
 /// Logged-in users who tapped “Join” on an event (RSVP-style).
@@ -258,6 +275,7 @@ model ChatMessage {
   externalDedupeKey String?
 
   @@unique([eventId, externalDedupeKey])
+  @@index([eventId, createdAt])
 }
 
 model NotificationPreference {

@@ -3,30 +3,12 @@
 import { useFormStatus } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { postEventMessage } from "@/actions/chat";
+import { clearPinnedEventAnnouncement, postEventAnnouncement } from "@/actions/announcements";
 import type { ChatMessageClient } from "@/lib/chat-message-dto";
 
 type Msg = ChatMessageClient;
 
-const CHAT_GUEST_NICK_KEY = "synapse-chat-guest-nickname";
-
-function persistGuestNickname(name: string) {
-  try {
-    const t = name.trim();
-    if (t) localStorage.setItem(CHAT_GUEST_NICK_KEY, t);
-    else localStorage.removeItem(CHAT_GUEST_NICK_KEY);
-  } catch {
-    /* quota / private mode */
-  }
-}
-
-function loadGuestNickname(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return localStorage.getItem(CHAT_GUEST_NICK_KEY)?.trim() ?? "";
-  } catch {
-    return "";
-  }
-}
+// Note: Posting requires an account; guests may read.
 
 function Submit({ compact }: { compact?: boolean }) {
   const { pending } = useFormStatus();
@@ -49,44 +31,87 @@ export function EventChat({
   eventId,
   eventSlug,
   initialMessages,
+  canManageAnnouncements = false,
+  canPost = true,
   layout = "default",
 }: {
   eventId: string;
   eventSlug: string;
   initialMessages: Msg[];
+  canManageAnnouncements?: boolean;
+  canPost?: boolean;
   /** `sideRail`: wide right column. `stageRail`: narrow ~15% column (tighter UI). `embedded`: mobile viewer tab. */
   layout?: "default" | "sideRail" | "embedded" | "stageRail";
 }) {
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
-  const [guestNick, setGuestNick] = useState("");
+  const [announcementDraft, setAnnouncementDraft] = useState("");
   const listRef = useRef<HTMLUListElement>(null);
 
-  useEffect(() => {
-    setGuestNick(loadGuestNickname());
-  }, []);
+  // Chat posting requires an account; keep guest nickname helpers for backward compatibility if needed later.
 
   useEffect(() => {
     setMessages(initialMessages);
   }, [initialMessages]);
 
   useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
+    // Prefer real-time stream; fallback to polling if unavailable.
+    let es: EventSource | null = null;
+    let pollId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (pollId) return;
+      const tick = async () => {
+        try {
+          const res = await fetch(`/api/events/${eventId}/chat`, { cache: "no-store" });
+          if (!res.ok) return;
+          const data = (await res.json()) as { messages: ChatMessageClient[] };
+          setMessages(data.messages);
+        } catch {
+          /* ignore */
+        }
+      };
+      pollId = setInterval(tick, 4000);
+      void tick();
+    };
+
+    try {
+      const afterChat = (initialMessages[initialMessages.length - 1]?.createdAt ?? new Date(0).toISOString()).toString();
+      es = new EventSource(`/api/events/${eventId}/stream?afterChat=${encodeURIComponent(afterChat)}`);
+      es.addEventListener("chat", (ev) => {
+        try {
+          const parsed = JSON.parse((ev as MessageEvent).data) as { message?: ChatMessageClient };
+          const m = parsed.message;
+          if (!m) return;
+          setMessages((prev) => {
+            if (prev.some((x) => x.id === m.id)) return prev;
+            return [...prev, m];
+          });
+        } catch {
+          /* ignore */
+        }
+      });
+      es.onerror = () => {
+        try {
+          es?.close();
+        } catch {
+          /* ignore */
+        }
+        es = null;
+        startPolling();
+      };
+    } catch {
+      startPolling();
+    }
+
+    return () => {
       try {
-        const res = await fetch(`/api/events/${eventId}/chat`, { cache: "no-store" });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { messages: ChatMessageClient[] };
-        setMessages(data.messages);
+        es?.close();
       } catch {
         /* ignore */
       }
+      if (pollId) clearInterval(pollId);
     };
-    const id = setInterval(tick, 4000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [eventId]);
+  }, [eventId, initialMessages]);
 
   useEffect(() => {
     listRef.current?.lastElementChild?.scrollIntoView({ block: "nearest" });
@@ -114,6 +139,62 @@ export function EventChat({
       >
         Chat
       </h2>
+      {canManageAnnouncements ? (
+        <div className={`mt-2 rounded-lg border border-zinc-800 bg-zinc-950/40 ${stageRail ? "p-2" : "p-3"}`}>
+          <p className={`${stageRail ? "text-[11px]" : "text-xs"} font-medium text-zinc-200`}>Announcement</p>
+          <form
+            className={`mt-2 flex gap-2 ${stageRail ? "flex-col" : "flex-col"}`}
+            action={async (fd) => {
+              await postEventAnnouncement(fd);
+              setAnnouncementDraft("");
+            }}
+          >
+            <input type="hidden" name="eventId" value={eventId} />
+            <input type="hidden" name="pinned" value="true" />
+            <input
+              name="body"
+              required
+              maxLength={300}
+              value={announcementDraft}
+              onChange={(e) => setAnnouncementDraft(e.target.value)}
+              placeholder="Pinned note for everyone (e.g. “Join Team Blue breakout now”)"
+              className={
+                stageRail
+                  ? "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600"
+                  : "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600"
+              }
+            />
+            <div className="flex items-center gap-2">
+              <Submit compact={stageRail} />
+              <button
+                type="button"
+                onClick={() => setAnnouncementDraft("")}
+                className={
+                  stageRail
+                    ? "rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900/60"
+                    : "rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/60"
+                }
+              >
+                Clear text
+              </button>
+            </div>
+          </form>
+          <form
+            className="mt-2"
+            action={async (fd) => {
+              await clearPinnedEventAnnouncement(fd);
+            }}
+          >
+            <input type="hidden" name="eventId" value={eventId} />
+            <button
+              type="submit"
+              className={`${stageRail ? "text-[11px]" : "text-xs"} text-zinc-400 hover:text-zinc-200`}
+            >
+              Remove pinned announcement
+            </button>
+          </form>
+        </div>
+      ) : null}
       {!stageRail ? (
         <p
           className={`text-zinc-500 ${rail ? "mt-1 line-clamp-2 text-xs" : embedded ? "mt-1 line-clamp-2 text-xs" : "mt-1 text-sm"}`}
@@ -149,9 +230,7 @@ export function EventChat({
       <form
         className={`flex flex-col gap-2 ${stageRail ? "mt-2 shrink-0 border-t border-zinc-800/80 pt-2" : railish || embedded ? "sm:flex-row mt-3 shrink-0 border-t border-zinc-800/80 pt-3" : "mt-4 sm:flex-row"}`}
         action={async (fd) => {
-          const nick = typeof fd.get("guestName") === "string" ? fd.get("guestName") : "";
           await postEventMessage(fd);
-          if (typeof nick === "string") persistGuestNickname(nick);
           const res = await fetch(`/api/events/${eventId}/chat`, { cache: "no-store" });
           if (res.ok) {
             const data = (await res.json()) as { messages: ChatMessageClient[] };
@@ -161,31 +240,25 @@ export function EventChat({
       >
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="eventSlug" value={eventSlug} />
-        <input
-          name="guestName"
-          value={guestNick}
-          onChange={(e) => setGuestNick(e.target.value)}
-          onBlur={() => persistGuestNickname(guestNick)}
-          placeholder="Guest name"
-          autoComplete="nickname"
-          maxLength={80}
-          className={
-            stageRail
-              ? "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600"
-              : "rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 sm:w-40"
-          }
-        />
-        <input
-          name="body"
-          required
-          placeholder={stageRail ? "Message…" : "Say something nice…"}
-          className={
-            stageRail
-              ? "min-h-[2.25rem] min-w-0 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600"
-              : "min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600"
-          }
-        />
-        <Submit compact={stageRail} />
+        {canPost ? (
+          <>
+            <input
+              name="body"
+              required
+              placeholder={stageRail ? "Message…" : "Say something nice…"}
+              className={
+                stageRail
+                  ? "min-h-[2.25rem] min-w-0 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600"
+                  : "min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600"
+              }
+            />
+            <Submit compact={stageRail} />
+          </>
+        ) : (
+          <p className={`${stageRail ? "text-[11px]" : "text-xs"} text-zinc-500`}>
+            Sign in to send messages.
+          </p>
+        )}
       </form>
     </section>
   );

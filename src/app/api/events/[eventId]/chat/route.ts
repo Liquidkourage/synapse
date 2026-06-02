@@ -8,7 +8,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
     where: { eventId },
     orderBy: { createdAt: "desc" },
     take: 100,
-    include: { user: { select: { name: true, email: true } } },
+    include: { user: { select: { name: true, email: true, profile: { select: { displayName: true } } } } },
   });
 
   const chronological = [...messages].reverse();

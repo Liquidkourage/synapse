@@ -42,6 +42,8 @@ export type EventStageShellProps = ViewerPanelsProps & {
     eventId: string;
     eventSlug: string;
     initialMessages: ChatMessageClient[];
+    canManageAnnouncements?: boolean;
+    canPost?: boolean;
   };
   /** Optional title strip above the grid (e.g. “Live now”). */
   banner?: React.ReactNode;
@@ -60,6 +62,8 @@ export function EventStageShell({ left, chat, banner, ...panelProps }: EventStag
       eventSlug={chat.eventSlug}
       layout={lgUp ? "stageRail" : "embedded"}
       initialMessages={chat.initialMessages}
+      canManageAnnouncements={!!chat.canManageAnnouncements}
+      canPost={chat.canPost ?? true}
     />
   );
 

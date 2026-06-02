@@ -18,9 +18,11 @@ import { getGameEmbedVisibility } from "@/lib/game-embed-access";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
+import { toEventAnnouncementClient } from "@/lib/event-announcement-dto";
 import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
 import { isPodcastEvent } from "@/lib/event-kind";
 import { DailyBreakoutsHostGuide } from "@/components/daily-breakouts-host-guide";
+import { EventAnnouncementBanner } from "@/components/event-announcement-banner";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -126,12 +128,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
     session.user.id === event.hostId &&
     isZoomNativeEvent(event);
 
-  const [messages, attendanceCount, userAttendance] = await Promise.all([
+  const [messages, attendanceCount, userAttendance, pinnedAnnouncement] = await Promise.all([
     prisma.chatMessage.findMany({
       where: { eventId: event.id },
       orderBy: { createdAt: "desc" },
       take: 50,
-      include: { user: { select: { name: true, email: true } } },
+      include: { user: { select: { name: true, email: true, profile: { select: { displayName: true } } } } },
     }),
     prisma.eventAttendance.count({ where: { eventId: event.id } }),
     session?.user?.id
@@ -139,6 +141,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           where: { eventId_userId: { eventId: event.id, userId: session.user.id } },
         })
       : null,
+    prisma.eventAnnouncement.findFirst({
+      where: { eventId: event.id, pinned: true },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const chatMessages = [...messages].reverse().map((m) => toChatMessageClient(m));
@@ -164,6 +170,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       )}
 
       <EventStageShell
+        banner={<EventAnnouncementBanner eventId={event.id} initial={pinnedAnnouncement ? toEventAnnouncementClient(pinnedAnnouncement) : null} />}
         left={
           <div className="flex flex-col gap-4 text-sm">
             <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -262,6 +269,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           eventId: event.id,
           eventSlug: event.slug,
           initialMessages: chatMessages,
+          canManageAnnouncements: canPublishViewerLayout,
+          canPost: !!session?.user?.id,
         }}
         storageKey={`event-${event.slug}`}
         broadcastLabel={broadcastLabel}
