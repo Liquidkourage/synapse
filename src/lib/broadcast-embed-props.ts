@@ -46,10 +46,11 @@ export async function getBroadcastEmbedPageProps(
       session?.user?.name?.trim() || session?.user?.email?.trim() || (isHost ? "Host" : "Guest");
     let broadcastBreakoutDual = false;
     let broadcastStageIframeSrc: string | null = null;
-    if (isHost && event.broadcastBreakoutsEnabled && event.zoomHostStageRoomUrl) {
+    if (canView && event.broadcastBreakoutsEnabled && event.zoomHostStageRoomUrl) {
       broadcastStageIframeSrc = await resolveZoomHostStageEmbedUrl(
         event.zoomHostStageRoomUrl,
         display,
+        { asHost: isHost },
       );
       broadcastBreakoutDual = !!broadcastStageIframeSrc;
     }

@@ -95,7 +95,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       ? event.broadcastHostOnlyJoin
         ? "Hidden from players — only the host (and staff) see the embed here."
         : event.broadcastBreakoutsEnabled
-          ? "Host: camera on the top panel; Zoom breakouts below. Guests see Zoom only."
+          ? "Everyone sees the host on top; Zoom breakouts below. Host: keep camera and mic on the top panel."
           : null
       : hasBroadcastVideo
         ? event.broadcastHostOnlyJoin

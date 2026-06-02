@@ -112,16 +112,17 @@ export function EventViewerPanels({
     broadcastBreakoutDual && !!(broadcastStageIframeSrc || broadcastMeetingIframeSrc);
 
   const hasZoomBreakoutDual =
-    !!broadcastZoomEventId &&
-    broadcastBreakoutDual &&
-    broadcastViewerIsHost &&
-    !!broadcastStageIframeSrc;
+    !!broadcastZoomEventId && broadcastBreakoutDual && !!broadcastStageIframeSrc;
 
   const zoomIframeId = broadcastZoomEventId ? `synapse-zoom-bo-${broadcastZoomEventId}` : undefined;
 
   const videoSlot =
     hasVideo && hasZoomBreakoutDual && broadcastZoomEventId ? (
-      <ZoomBreakoutDualVideo stageSrc={broadcastStageIframeSrc!} zoomEventId={broadcastZoomEventId} />
+      <ZoomBreakoutDualVideo
+        stageSrc={broadcastStageIframeSrc!}
+        zoomEventId={broadcastZoomEventId}
+        isHost={broadcastViewerIsHost}
+      />
     ) : hasVideo && broadcastZoomEventId ? (
       <ZoomMeetingEmbed
         eventId={broadcastZoomEventId}

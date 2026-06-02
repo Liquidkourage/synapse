@@ -132,19 +132,21 @@ async function mintDailyEmbedUrl(
   }
 }
 
-/** Host-only Daily stage embed (streaming / owner broadcast) for Zoom breakout dual layout. */
+/** Daily host stage for Zoom+breakout events — host publishes; guests watch-only. */
 export async function resolveZoomHostStageEmbedUrl(
   stageRoomUrl: string | null,
   displayName: string,
+  opts: { asHost: boolean },
 ): Promise<string | null> {
   if (!stageRoomUrl) return null;
   const roomName = roomNameFromDailyRoomUrl(stageRoomUrl);
   if (!roomName) return null;
+  const asHost = opts.asHost;
   return mintDailyEmbedUrl(stageRoomUrl, roomName, {
-    display: displayName,
-    owner: true,
-    publish: true,
-    watchOnly: false,
+    display: asHost ? displayName : "Host",
+    owner: asHost,
+    publish: asHost,
+    watchOnly: !asHost,
   });
 }
 
