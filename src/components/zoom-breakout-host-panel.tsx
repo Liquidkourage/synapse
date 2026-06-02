@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   SYNAPSE_ZOOM_BO_CHANNEL,
+  isSynapseZoomBreakoutAck,
   isSynapseZoomBreakoutStatus,
   type SynapseZoomBreakoutCommand,
 } from "@/lib/zoom-breakout-messages";
+
+const BO_UI_TIMEOUT_MS = 25_000;
 
 function zoomBreakoutIframeId(eventId: string): string {
   return `synapse-zoom-bo-${eventId}`;
@@ -38,6 +41,10 @@ export function ZoomBreakoutHostPanel({
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
+      if (isSynapseZoomBreakoutAck(event.data)) {
+        setStatus("Contacting Zoom…");
+        return;
+      }
       if (!isSynapseZoomBreakoutStatus(event.data)) return;
       setBusy(null);
       setStatus(event.data.ok ? event.data.message : `Error: ${event.data.message}`);
@@ -45,6 +52,17 @@ export function ZoomBreakoutHostPanel({
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
+
+  useEffect(() => {
+    if (!busy) return;
+    const timer = window.setTimeout(() => {
+      setBusy(null);
+      setStatus(
+        "Error: Timed out waiting for Zoom. Make sure the meeting finished joining, then check the Zoom panel for a breakout dialog or use Breakout Rooms in the toolbar.",
+      );
+    }, BO_UI_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [busy]);
 
   const run = useCallback(
     (action: SynapseZoomBreakoutCommand["action"]) => {

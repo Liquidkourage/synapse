@@ -51,6 +51,7 @@ type ZoomClientGlobal = {
   createBreakoutRoom?: (opts: Record<string, unknown>) => void;
   openBreakoutRooms?: (opts: Record<string, unknown>) => void;
   closeBreakoutRooms?: (opts: Record<string, unknown>) => void;
+  getBreakoutRoomList?: (opts: Record<string, unknown>) => void;
   inMeetingServiceListener?: (event: string, handler: (...args: unknown[]) => void) => void;
   i18n?: ZoomI18n;
 };
@@ -299,6 +300,18 @@ function whenZoomReady(ZoomMtg: ZoomClientGlobal, run: () => void): void {
 }
 
 let joinPromise: Promise<void> | null = null;
+let synapseZoomJoinPayload: ZoomJoinPayload | null = null;
+
+/** Join context for the active embed session (breakout commands, host checks). */
+export function getSynapseZoomJoinPayload(): ZoomJoinPayload | null {
+  return synapseZoomJoinPayload;
+}
+
+/** Zoom client already loaded/joined in this page — prefer over reloading scripts. */
+export function getActiveZoomMtg(): ZoomClientGlobal | null {
+  const sdk = (window as Window & { ZoomMtg?: ZoomClientGlobal }).ZoomMtg;
+  return sdk?.init ? sdk : null;
+}
 
 /** Join — guests pin host large; host spotlights self without pin (avoids duplicate self-view). */
 export async function joinZoomClientView(
@@ -340,6 +353,7 @@ export async function joinZoomClientView(
               customerKey: payload.customerKey ?? "",
               zak: payload.zak ?? "",
               success: () => {
+                synapseZoomJoinPayload = payload;
                 setupHostLargeLayout(ZoomMtg, payload);
                 resolve();
               },
@@ -362,5 +376,6 @@ export async function joinZoomClientView(
 
 export function resetZoomJoinState(): Promise<void> {
   joinPromise = null;
+  synapseZoomJoinPayload = null;
   return leaveZoomMeeting();
 }

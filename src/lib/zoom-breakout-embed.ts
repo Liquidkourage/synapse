@@ -2,15 +2,31 @@
  * Zoom Meeting SDK breakout controls — runs inside the embed iframe after join.
  */
 
-import { loadZoomClientSdk } from "@/lib/zoom-embedded-cdn";
-import type { SynapseZoomBreakoutStatus } from "@/lib/zoom-breakout-messages";
+import {
+  getActiveZoomMtg,
+  getSynapseZoomJoinPayload,
+  loadZoomClientSdk,
+} from "@/lib/zoom-embedded-cdn";
+import type { SynapseZoomBreakoutAck, SynapseZoomBreakoutStatus } from "@/lib/zoom-breakout-messages";
 import { SYNAPSE_ZOOM_BO_CHANNEL } from "@/lib/zoom-breakout-messages";
 
 type ZoomBoSdk = Awaited<ReturnType<typeof loadZoomClientSdk>>;
 
+const BO_TIMEOUT_MS = 22_000;
+
 function postStatus(status: SynapseZoomBreakoutStatus): void {
   if (window.parent === window) return;
   window.parent.postMessage(status, window.location.origin);
+}
+
+function postAck(action: string): void {
+  if (window.parent === window) return;
+  const ack: SynapseZoomBreakoutAck = {
+    channel: SYNAPSE_ZOOM_BO_CHANNEL,
+    type: "ack",
+    action,
+  };
+  window.parent.postMessage(ack, window.location.origin);
 }
 
 function ok(message: string): void {
@@ -19,6 +35,22 @@ function ok(message: string): void {
 
 function fail(message: string): void {
   postStatus({ channel: SYNAPSE_ZOOM_BO_CHANNEL, type: "status", ok: false, message });
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (v) => {
+        window.clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
 }
 
 /** Zoom SDK often passes plain objects, not Error instances. */
@@ -61,7 +93,7 @@ function formatZoomBreakoutError(err: unknown, action: string): string {
   }
 
   if (action === "create-rooms") {
-    return "Could not create breakout rooms. Re-save the event with breakouts enabled, use Create/sync Zoom meeting, then rejoin the video panel.";
+    return "Could not create breakout rooms. Check the Zoom panel for a popup, or use Breakout Rooms in the Zoom toolbar.";
   }
   if (action === "open-rooms") {
     return "Could not open breakouts. Create rooms first, or use Zoom’s Breakout Rooms button in the meeting toolbar.";
@@ -69,36 +101,54 @@ function formatZoomBreakoutError(err: unknown, action: string): string {
   return "Could not close breakouts. Use Zoom’s Breakout Rooms panel if the sidebar button fails.";
 }
 
-function isHostClient(ZoomMtg: ZoomBoSdk): Promise<boolean> {
-  return new Promise((resolve) => {
-    ZoomMtg.getCurrentUser({
-      success: (res: unknown) => {
-        const root = res as { result?: { currentUser?: { isHost?: boolean; bHost?: boolean } } };
-        const u = root.result?.currentUser;
-        resolve(!!(u?.isHost || u?.bHost));
-      },
-      error: () => resolve(false),
-    });
-  });
+async function resolveZoomMtg(): Promise<ZoomBoSdk> {
+  const active = getActiveZoomMtg();
+  if (active) return active;
+  return loadZoomClientSdk();
 }
 
-function createRooms(ZoomMtg: ZoomBoSdk, names: string[]): Promise<void> {
+async function isHostInMeeting(ZoomMtg: ZoomBoSdk): Promise<boolean> {
+  const join = getSynapseZoomJoinPayload();
+  if (join?.role === 1) return true;
+
+  return withTimeout(
+    new Promise<boolean>((resolve) => {
+      ZoomMtg.getCurrentUser({
+        success: (res: unknown) => {
+          const root = res as { result?: { currentUser?: { isHost?: boolean; bHost?: boolean } } };
+          const u = root.result?.currentUser;
+          resolve(!!(u?.isHost || u?.bHost));
+        },
+        error: () => resolve(false),
+      });
+    }),
+    6000,
+    "Host check timed out",
+  ).catch(() => false);
+}
+
+function createOneRoom(ZoomMtg: ZoomBoSdk, name: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!ZoomMtg.createBreakoutRoom) {
-      reject(
-        new Error(
-          "Breakout rooms are not available in this Zoom embed. Rejoin the meeting after enabling breakouts on the event.",
-        ),
-      );
+      reject(new Error("createBreakoutRoom is not available in this Zoom embed."));
       return;
     }
     ZoomMtg.createBreakoutRoom({
-      data: names,
-      pattern: "manually",
+      data: name,
       success: () => resolve(),
       error: (err: unknown) => reject(err),
     });
   });
+}
+
+async function createRoomsSequential(ZoomMtg: ZoomBoSdk, names: string[]): Promise<void> {
+  for (const name of names) {
+    await withTimeout(
+      createOneRoom(ZoomMtg, name),
+      12_000,
+      `Timed out creating room “${name}”. Check the Zoom panel for a dialog, or use Breakout Rooms in the toolbar.`,
+    );
+  }
 }
 
 function openRooms(ZoomMtg: ZoomBoSdk): Promise<void> {
@@ -132,35 +182,54 @@ function closeRooms(ZoomMtg: ZoomBoSdk): Promise<void> {
   });
 }
 
+async function runBreakoutAction(
+  action: "create-rooms" | "open-rooms" | "close-rooms",
+  names: string[],
+): Promise<void> {
+  if (!getSynapseZoomJoinPayload() && !getActiveZoomMtg()) {
+    fail("Zoom is still joining. Wait until the meeting video appears, then try again.");
+    return;
+  }
+
+  const ZoomMtg = await resolveZoomMtg();
+
+  if (!(await isHostInMeeting(ZoomMtg))) {
+    fail("Only the meeting host can control breakout rooms. Rejoin as host (ZAK required in Zoom settings).");
+    return;
+  }
+
+  if (action === "create-rooms") {
+    const list = names.map((n) => n.trim()).filter(Boolean);
+    if (list.length === 0) {
+      fail("Add team names on the event form first (one per line).");
+      return;
+    }
+    await createRoomsSequential(ZoomMtg, list);
+    ok(`Created ${list.length} breakout room(s): ${list.join(", ")}`);
+    return;
+  }
+
+  if (action === "open-rooms") {
+    await openRooms(ZoomMtg);
+    ok("Breakout rooms are open — participants will join their rooms.");
+    return;
+  }
+
+  await closeRooms(ZoomMtg);
+  ok("Breakout rooms closed — everyone returns to the main session.");
+}
+
 export async function handleSynapseZoomBreakoutCommand(
   action: "create-rooms" | "open-rooms" | "close-rooms",
   names: string[],
 ): Promise<void> {
-  const ZoomMtg = await loadZoomClientSdk();
-
-  if (!(await isHostClient(ZoomMtg))) {
-    fail("Only the meeting host can control breakout rooms. Join the Zoom panel as host (ZAK required).");
-    return;
-  }
-
+  postAck(action);
   try {
-    if (action === "create-rooms") {
-      const list = names.map((n) => n.trim()).filter(Boolean);
-      if (list.length === 0) {
-        fail("Add team names on the event form first (one per line).");
-        return;
-      }
-      await createRooms(ZoomMtg, list);
-      ok(`Created ${list.length} breakout room(s): ${list.join(", ")}`);
-      return;
-    }
-    if (action === "open-rooms") {
-      await openRooms(ZoomMtg);
-      ok("Breakout rooms are open — participants will join their rooms.");
-      return;
-    }
-    await closeRooms(ZoomMtg);
-    ok("Breakout rooms closed — everyone returns to the main session.");
+    await withTimeout(
+      runBreakoutAction(action, names),
+      BO_TIMEOUT_MS,
+      "Breakout command timed out. Look at the Zoom panel for a breakout dialog, or use Breakout Rooms in the Zoom toolbar.",
+    );
   } catch (e) {
     console.warn("[zoom-breakout]", action, e);
     fail(formatZoomBreakoutError(e, action));

@@ -14,6 +14,12 @@ export type SynapseZoomBreakoutStatus = {
   message: string;
 };
 
+export type SynapseZoomBreakoutAck = {
+  channel: typeof SYNAPSE_ZOOM_BO_CHANNEL;
+  type: "ack";
+  action: string;
+};
+
 export function isSynapseZoomBreakoutCommand(data: unknown): data is SynapseZoomBreakoutCommand {
   if (!data || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
@@ -26,4 +32,10 @@ export function isSynapseZoomBreakoutStatus(data: unknown): data is SynapseZoomB
   if (!data || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
   return d.channel === SYNAPSE_ZOOM_BO_CHANNEL && d.type === "status";
+}
+
+export function isSynapseZoomBreakoutAck(data: unknown): data is SynapseZoomBreakoutAck {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Record<string, unknown>;
+  return d.channel === SYNAPSE_ZOOM_BO_CHANNEL && d.type === "ack";
 }
