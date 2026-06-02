@@ -14,6 +14,9 @@ type ZoomBoSdk = Awaited<ReturnType<typeof loadZoomClientSdk>>;
 
 const BO_TIMEOUT_MS = 22_000;
 
+/** Zoom BreakoutRoomAllocationPattern: manually = 2 (required when naming rooms). */
+const BREAKOUT_PATTERN_MANUAL = 2;
+
 function postStatus(status: SynapseZoomBreakoutStatus): void {
   if (window.parent === window) return;
   window.parent.postMessage(status, window.location.origin);
@@ -78,6 +81,9 @@ function formatZoomBreakoutError(err: unknown, action: string): string {
       if (lower.includes("not_host") || lower.includes("3003")) {
         return "You are not the meeting host in Zoom. Reconnect Zoom in host settings and rejoin with ZAK.";
       }
+      if (lower.includes("pattern")) {
+        return "Zoom rejected the breakout room setup (pattern). Try again after deploy, or create rooms with the Breakout Rooms button in the Zoom toolbar.";
+      }
       if (lower.includes("invalid_parameters") || lower.includes("maximum")) {
         return combined;
       }
@@ -127,14 +133,15 @@ async function isHostInMeeting(ZoomMtg: ZoomBoSdk): Promise<boolean> {
   ).catch(() => false);
 }
 
-function createOneRoom(ZoomMtg: ZoomBoSdk, name: string): Promise<void> {
+function createBreakoutRoomsNamed(ZoomMtg: ZoomBoSdk, names: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!ZoomMtg.createBreakoutRoom) {
       reject(new Error("createBreakoutRoom is not available in this Zoom embed."));
       return;
     }
     ZoomMtg.createBreakoutRoom({
-      data: name,
+      data: names.length === 1 ? names[0]! : names,
+      pattern: BREAKOUT_PATTERN_MANUAL,
       success: () => resolve(),
       error: (err: unknown) => reject(err),
     });
@@ -144,10 +151,24 @@ function createOneRoom(ZoomMtg: ZoomBoSdk, name: string): Promise<void> {
 async function createRoomsSequential(ZoomMtg: ZoomBoSdk, names: string[]): Promise<void> {
   for (const name of names) {
     await withTimeout(
-      createOneRoom(ZoomMtg, name),
+      createBreakoutRoomsNamed(ZoomMtg, [name]),
       12_000,
       `Timed out creating room “${name}”. Check the Zoom panel for a dialog, or use Breakout Rooms in the toolbar.`,
     );
+  }
+}
+
+async function createRooms(ZoomMtg: ZoomBoSdk, names: string[]): Promise<void> {
+  try {
+    await withTimeout(
+      createBreakoutRoomsNamed(ZoomMtg, names),
+      BO_TIMEOUT_MS,
+      "Timed out creating breakout rooms.",
+    );
+  } catch (first) {
+    if (names.length <= 1) throw first;
+    console.warn("[zoom-breakout] batch create failed, trying one-by-one", first);
+    await createRoomsSequential(ZoomMtg, names);
   }
 }
 
@@ -204,7 +225,7 @@ async function runBreakoutAction(
       fail("Add team names on the event form first (one per line).");
       return;
     }
-    await createRoomsSequential(ZoomMtg, list);
+    await createRooms(ZoomMtg, list);
     ok(`Created ${list.length} breakout room(s): ${list.join(", ")}`);
     return;
   }
