@@ -1,11 +1,17 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
+import { PodcastAudioProvider } from "@/contexts/podcast-audio-context";
+import { PodcastAudioShell } from "@/components/podcast-audio-shell";
+import { PodcastGlobalPlayer } from "@/components/podcast-global-player";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider basePath="/api/auth" refetchOnWindowFocus>
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <PodcastAudioProvider>
+        <PodcastAudioShell>{children}</PodcastAudioShell>
+        <PodcastGlobalPlayer />
+      </PodcastAudioProvider>
     </SessionProvider>
   );
 }

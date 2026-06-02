@@ -3,6 +3,7 @@ import type { Event, User } from "@/generated/prisma";
 import { LocalDateTime } from "@/components/local-datetime";
 import { PodcastEmbedPlayer } from "@/components/podcast-embed";
 import { eventKindLabel } from "@/lib/event-kind";
+import { eventPublicPath } from "@/lib/event-page-path";
 import { podcastPlatformLabel } from "@/lib/podcast-label";
 import type { PodcastEmbed } from "@/lib/podcast-embed";
 import { podcastShowPath } from "@/lib/podcast-show-meta";
@@ -73,7 +74,12 @@ export function PodcastEpisodeLayout({
         </h2>
         {podcastEmbed ? (
           <>
-            <PodcastEmbedPlayer embed={podcastEmbed} title={event.title} prominent />
+            <PodcastEmbedPlayer
+              embed={podcastEmbed}
+              title={event.title}
+              prominent
+              episodeHref={podcastEmbed.kind === "audio" ? eventPublicPath(event) : undefined}
+            />
             <div className="flex flex-wrap gap-3">
               <a
                 href={event.podcastEmbedUrl!}

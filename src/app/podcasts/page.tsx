@@ -50,7 +50,11 @@ export default async function PodcastsPage() {
               </Link>
             </div>
             {featuredEmbed ? (
-              <PodcastEmbedPlayer embed={featuredEmbed} title={featured.title} />
+              <PodcastEmbedPlayer
+                embed={featuredEmbed}
+                title={featured.title}
+                episodeHref={featuredEmbed.kind === "audio" ? eventPublicPath(featured) : undefined}
+              />
             ) : null}
           </div>
         </section>

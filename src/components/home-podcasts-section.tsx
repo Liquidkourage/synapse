@@ -65,7 +65,11 @@ export function HomePodcastsSection({
             </Link>
           </div>
           {featuredEmbed ? (
-            <PodcastEmbedPlayer embed={featuredEmbed} title={featured.title} />
+            <PodcastEmbedPlayer
+              embed={featuredEmbed}
+              title={featured.title}
+              episodeHref={featuredEmbed.kind === "audio" ? eventPublicPath(featured) : undefined}
+            />
           ) : (
             <div className="rounded-xl border border-dashed border-zinc-700 p-6 text-sm text-zinc-500">
               Open the episode page to listen.

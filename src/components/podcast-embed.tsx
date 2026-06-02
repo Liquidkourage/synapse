@@ -1,3 +1,4 @@
+import { PodcastAudioPlayer } from "@/components/podcast-audio-player";
 import type { PodcastEmbed } from "@/lib/podcast-embed";
 
 const IFRAME_ALLOW = "autoplay; encrypted-media; fullscreen; picture-in-picture";
@@ -6,21 +7,18 @@ export function PodcastEmbedPlayer({
   embed,
   title,
   prominent = false,
+  episodeHref,
 }: {
   embed: PodcastEmbed;
   title: string;
   /** Taller player for dedicated podcast episode pages. */
   prominent?: boolean;
+  /** Link for the sticky player title (direct audio only). */
+  episodeHref?: string;
 }) {
   if (embed.kind === "audio") {
     return (
-      <audio
-        controls
-        preload="metadata"
-        className={prominent ? "w-full rounded-xl" : "w-full"}
-        src={embed.src}
-        title={title}
-      />
+      <PodcastAudioPlayer src={embed.src} title={title} episodeHref={episodeHref} prominent={prominent} />
     );
   }
 
