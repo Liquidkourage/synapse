@@ -18,8 +18,8 @@ export default async function NewHostEventPage({
         </Link>
         <h1 className="mt-2 text-2xl font-semibold text-white">New live event</h1>
         <p className="mt-1 max-w-xl text-sm text-zinc-500">
-          Zoom for the meeting and breakouts; host camera on the top stage for everyone. Uses your Zoom plan — not Daily
-          participant pricing for teams.
+          Zoom for the meeting and breakouts — one video panel. Host stays in the main session; use Broadcast voice so
+          teams in breakout rooms hear you.
         </p>
       </div>
       {podcastError ? (

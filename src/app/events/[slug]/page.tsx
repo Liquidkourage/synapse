@@ -50,7 +50,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           broadcastBreakoutsEnabled: event.broadcastBreakoutsEnabled,
           broadcastVideoProvider: event.broadcastVideoProvider,
           zoomMeetingNumber: event.zoomMeetingNumber,
-          zoomHostStageRoomUrl: event.zoomHostStageRoomUrl,
           hostId: event.hostId,
           producerId: event.producerId,
         },
@@ -96,10 +95,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         ? "Hidden from players — only the host (and staff) see the embed here."
         : event.broadcastBreakoutsEnabled
           ? isZoomNativeEvent(event)
-            ? "Everyone sees the host on top; team breakouts in Zoom below. Keep camera and mic on the top panel."
+            ? "Zoom only — you stay in the main meeting; teams in breakout rooms. Unmute in Zoom and use Broadcast voice so all rooms hear you."
             : "Legacy Daily layout — host on top; Breakout in the lower Daily panel."
           : isZoomNativeEvent(event)
-            ? "Live video in Zoom; host stage on top when breakouts are enabled."
+            ? "Live video in Zoom."
             : isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
               ? "Legacy built-in Daily video."
               : null
@@ -200,7 +199,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                 eventId={event.id}
                 teamNames={breakoutTeamNamesFromDb(event.breakoutTeamNames)}
                 editEventId={event.id}
-                stageAvailable={!!event.zoomHostStageRoomUrl}
               />
             ) : null}
             {showDailyBreakoutHostGuide ? <DailyBreakoutsHostGuide editEventId={event.id} /> : null}

@@ -27,13 +27,10 @@ export function ZoomBreakoutHostPanel({
   eventId,
   teamNames,
   editEventId,
-  stageAvailable,
 }: {
   eventId: string;
   teamNames: string[];
   editEventId?: string;
-  /** Daily host stage was provisioned (dual video). */
-  stageAvailable: boolean;
 }) {
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -92,27 +89,19 @@ export function ZoomBreakoutHostPanel({
   return (
     <div className="rounded-xl border border-sky-500/35 bg-sky-950/20 p-4 text-sm text-zinc-300">
       <p className="font-medium text-sky-200">Zoom breakouts (host)</p>
-
-      {!stageAvailable ? (
-        <p className="mt-2 text-xs text-amber-300/90">
-          Host stage room is not set up yet. Save the event with breakouts enabled and use{" "}
-          <strong className="text-amber-200/90">Create / sync Zoom meeting</strong> (requires{" "}
-          <code className="text-[10px]">DAILY_API_KEY</code> on the server for your camera panel).
-        </p>
-      ) : (
-        <p className="mt-1 text-xs text-zinc-500">
-          Top panel = your camera and mic (everyone hears you here). Bottom = Zoom for breakouts. The embedded Zoom
-          client often has no <strong className="text-zinc-400">Broadcast</strong> menu — that is normal.
-        </p>
-      )}
+      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+        You stay in the <strong className="text-zinc-400">main</strong> Zoom session. Teams go to breakout rooms. To be
+        heard in every room, unmute in Zoom and use <strong className="text-zinc-400">Broadcast voice</strong> (see
+        below).
+      </p>
 
       <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs leading-relaxed text-zinc-400">
-        <li>Join both video panels while logged in as host.</li>
+        <li>Join the Zoom panel while logged in as host. Keep camera and mic on in Zoom.</li>
         <li>
           {hasTeams ? (
             <>
-              Click <strong className="text-zinc-300">Create rooms</strong> below to add{" "}
-              {teamNames.length} preset team room{teamNames.length === 1 ? "" : "s"}.
+              Click <strong className="text-zinc-300">Create rooms</strong>, then{" "}
+              <strong className="text-zinc-300">Open breakouts</strong>.
             </>
           ) : (
             <>
@@ -124,19 +113,20 @@ export function ZoomBreakoutHostPanel({
               ) : (
                 "event form"
               )}{" "}
-              (one per line), save, then create rooms.
+              first.
             </>
           )}
         </li>
-        <li>Assign players to rooms in Zoom if needed, then click Open breakouts.</li>
-        <li>While teams are in rooms, keep your mic on the top (Daily) panel — players still see that stream.</li>
-        <li>When done, Close breakouts to bring everyone back to the main session.</li>
+        <li>
+          After breakouts open: in the Zoom toolbar open <strong className="text-zinc-300">Breakout Rooms</strong> →{" "}
+          <strong className="text-zinc-300">Broadcast</strong> → <strong className="text-zinc-300">Broadcast voice</strong>{" "}
+          (or use the Zoom desktop app if the browser menu is missing).
+        </li>
+        <li>When done, click Close breakouts or use Zoom&apos;s Close all rooms.</li>
       </ol>
 
       {hasTeams ? (
-        <p className="mt-2 text-[11px] text-zinc-600">
-          Rooms: {teamNames.join(" · ")}
-        </p>
+        <p className="mt-2 text-[11px] text-zinc-600">Rooms: {teamNames.join(" · ")}</p>
       ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -175,9 +165,8 @@ export function ZoomBreakoutHostPanel({
       ) : null}
 
       <p className="mt-3 text-[11px] text-zinc-600">
-        Optional: in the full Zoom desktop app, after breakouts are open, open <strong className="text-zinc-500">Breakout
-        Rooms</strong> and look for broadcast voice there. Enable it under zoom.us → Settings → Meeting → Breakout room.
-        Synapse’s in-browser Zoom panel may not show that control; use the top Daily panel for host audio instead.
+        Enable <strong className="text-zinc-500">Broadcast voice to breakout rooms</strong> at zoom.us → Settings →
+        Meeting → Breakout room. Without that, teams in breakouts will not hear you in the main session.
       </p>
 
       {editEventId ? (

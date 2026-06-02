@@ -1,7 +1,6 @@
 import type { Session } from "next-auth";
 import { getBroadcastEmbedPageProps as getDailyBroadcastEmbedPageProps } from "@/lib/daily-broadcast-embed-props";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
-import { resolveZoomHostStageEmbedUrl } from "@/lib/daily-broadcast-url";
 import { isZoomNativeEvent } from "@/lib/zoom-meetings";
 
 type EventForBroadcast = {
@@ -14,7 +13,6 @@ type EventForBroadcast = {
   broadcastBreakoutsEnabled?: boolean | null;
   broadcastVideoProvider?: string | null;
   zoomMeetingNumber?: string | null;
-  zoomHostStageRoomUrl?: string | null;
 };
 
 export type BroadcastEmbedPageProps = {
@@ -42,23 +40,11 @@ export async function getBroadcastEmbedPageProps(
       },
       session,
     );
-    const display =
-      session?.user?.name?.trim() || session?.user?.email?.trim() || (isHost ? "Host" : "Guest");
-    let broadcastBreakoutDual = false;
-    let broadcastStageIframeSrc: string | null = null;
-    if (canView && event.broadcastBreakoutsEnabled && event.zoomHostStageRoomUrl) {
-      broadcastStageIframeSrc = await resolveZoomHostStageEmbedUrl(
-        event.zoomHostStageRoomUrl,
-        display,
-        { asHost: isHost },
-      );
-      broadcastBreakoutDual = !!broadcastStageIframeSrc;
-    }
     return {
       broadcastIframeSrc: null,
-      broadcastStageIframeSrc,
+      broadcastStageIframeSrc: null,
       broadcastMeetingIframeSrc: null,
-      broadcastBreakoutDual,
+      broadcastBreakoutDual: false,
       broadcastViewerIsHost: isHost,
       broadcastZoomEventId: canView ? event.id : null,
     };

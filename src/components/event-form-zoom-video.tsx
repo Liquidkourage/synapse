@@ -12,7 +12,7 @@ type Defaults = {
   broadcastEmbedUrl: string;
 };
 
-/** Live video: Zoom meeting + Daily host stage (top). Optional custom embed. */
+/** Live video: Zoom meeting (single embed). Optional custom embed URL. */
 export function EventFormZoomVideo({
   eventId,
   defaults,
@@ -35,9 +35,9 @@ export function EventFormZoomVideo({
 
       <label className="block text-sm font-medium text-sky-200">Live video (Zoom)</label>
       <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-        Teams join <strong className="text-zinc-400">Zoom</strong> (lower panel). Everyone sees you on the{" "}
-        <strong className="text-zinc-400">host stage</strong> on top (small Daily room — not billed like a full Daily
-        show). Use your Zoom plan for meeting minutes and breakouts.
+        One Zoom embed for everyone. For breakouts you stay in the <strong className="text-zinc-400">main</strong>{" "}
+        meeting with mic on; teams hear you via Zoom&apos;s{" "}
+        <strong className="text-zinc-400">Broadcast voice to breakout rooms</strong> (enable in Zoom account settings).
       </p>
 
       {showCustom ? (
@@ -99,7 +99,8 @@ function ZoomFields({
       <fieldset className="space-y-2 border-0 p-0">
         <legend className="text-sm font-medium text-zinc-300">Meeting style</legend>
         <p className="text-xs text-zinc-500">
-          Breakouts = host on top (camera/mic) + Zoom team rooms below. Sidebar controls on the event page.
+          Breakouts = host stays in main Zoom; teams in rooms — use Broadcast voice so they hear you. Sidebar controls on
+          the event page.
         </p>
         <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-400">
           <input
@@ -137,7 +138,7 @@ function ZoomFields({
           />
           <span>
             <span className="font-medium text-zinc-300">Meeting with breakout rooms</span>
-            <span className="mt-0.5 block text-xs text-zinc-500">Recommended for trivia — Zoom breakouts + host stage on top.</span>
+            <span className="mt-0.5 block text-xs text-zinc-500">Recommended for trivia — Zoom breakouts; host in main session.</span>
           </span>
         </label>
       </fieldset>
@@ -188,7 +189,7 @@ function CustomEmbedFields({
 }) {
   return (
     <div className="mt-4 space-y-3 border-t border-zinc-800/80 pt-4">
-      <p className="text-xs text-zinc-500">Custom player — not Zoom + host stage.</p>
+      <p className="text-xs text-zinc-500">Custom player — not Zoom.</p>
       <label htmlFor={eventId ? `broadcast-custom-${eventId}` : "broadcast-custom-new"} className="block text-xs text-zinc-500">
         Video embed URL
       </label>

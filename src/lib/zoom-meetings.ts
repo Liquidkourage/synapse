@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { getZoomAccessTokenForUser } from "@/lib/zoom-tokens";
-import { ensureZoomHostStageRoom } from "@/lib/zoom-host-stage";
 
 type ZoomMeetingCreateResponse = {
   id: number | string;
@@ -152,11 +151,6 @@ export async function provisionZoomMeetingForEvent(
     return { ok: false, error: `Zoom API (${res.status}): ${raw.slice(0, 500)}` };
   }
 
-  let zoomHostStageRoomUrl: string | null = null;
-  if (opts.breakouts) {
-    zoomHostStageRoomUrl = await ensureZoomHostStageRoom(event.slug);
-  }
-
   /** PATCH /meetings/{id} returns 204 No Content — no JSON body. */
   if (isUpdate && (res.status === 204 || !raw.trim())) {
     await prisma.event.update({
@@ -167,7 +161,7 @@ export async function provisionZoomMeetingForEvent(
         broadcastBreakoutsEnabled: opts.breakouts,
         broadcastStreamingMode: false,
         broadcastHostOnlyJoin: false,
-        zoomHostStageRoomUrl: opts.breakouts ? zoomHostStageRoomUrl : null,
+        zoomHostStageRoomUrl: null,
       },
     });
     return { ok: true };
@@ -194,7 +188,7 @@ export async function provisionZoomMeetingForEvent(
       broadcastBreakoutsEnabled: opts.breakouts,
       broadcastStreamingMode: false,
       broadcastHostOnlyJoin: false,
-      zoomHostStageRoomUrl: opts.breakouts ? zoomHostStageRoomUrl : null,
+      zoomHostStageRoomUrl: null,
     },
   });
 

@@ -168,7 +168,7 @@ Live host video is **built in** via [Daily.co](https://www.daily.co/) (free tier
 - Saving a **new** event auto-creates a Daily room (unless you already pasted a custom video URL, or you set `SYNAPSE_VIDEO_AUTO_ROOM=false`).
 - **Edit event:** use **Create new Synapse video room** if you need a fresh room.
 - **Override:** paste any other iframe-safe live URL in the same field if you use a different provider.
-- **Live video (Zoom, default):** New events use the host’s Zoom account for meetings and breakouts (`/host/settings/zoom` to connect). **Meeting with breakout rooms** = host camera/mic on the top stage (small Daily room for embed only) + Zoom below for teams — uses your Zoom plan, not Daily participant pricing for the audience. Requires `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET`, Meeting SDK, and `DAILY_API_KEY` for the host stage room.
+- **Live video (Zoom):** New events use the host’s Zoom account — one embed for everyone. **Meeting with breakout rooms** = you stay in the main session; teams in Zoom breakouts. Enable **Broadcast voice to breakout rooms** in the Zoom web portal, then use Breakout Rooms → Broadcast → Broadcast voice after opening breakouts. Requires `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` and Meeting SDK. No Daily room for the show.
 - **Custom embed (optional):** Mux, 100ms, etc. via **custom embed URL** on the event form.
 - **Hide video from players (optional):** checkbox — iframe only for host / assigned producer / admin; others see a notice. UI gating only; combine with Daily private rooms for stronger control.
 
