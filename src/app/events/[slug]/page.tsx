@@ -96,12 +96,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         ? "Hidden from players — only the host (and staff) see the embed here."
         : event.broadcastBreakoutsEnabled
           ? isZoomNativeEvent(event)
-            ? "Zoom route — everyone sees the host on top; team breakouts in Zoom below. Host: mic/camera on top panel."
-            : "Daily route — host on top; use Breakout in the lower Daily panel for teams."
+            ? "Everyone sees the host on top; team breakouts in Zoom below. Keep camera and mic on the top panel."
+            : "Legacy Daily layout — host on top; Breakout in the lower Daily panel."
           : isZoomNativeEvent(event)
-            ? "Zoom route — live video in Zoom."
+            ? "Live video in Zoom; host stage on top when breakouts are enabled."
             : isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)
-              ? "Daily route — built-in Synapse video."
+              ? "Legacy built-in Daily video."
               : null
       : hasBroadcastVideo
         ? event.broadcastHostOnlyJoin

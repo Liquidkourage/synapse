@@ -11,10 +11,10 @@ export function broadcastVideoProviderFromEvent(event: {
   if (isZoomNativeEvent(event)) return "zoom";
   if (event.broadcastEmbedUrl && isDailyNativeBroadcastUrl(event.broadcastEmbedUrl)) return "daily";
   if (event.broadcastEmbedUrl?.trim()) return "custom";
-  return (event.broadcastVideoProvider as BroadcastVideoProvider) || "daily";
+  return (event.broadcastVideoProvider as BroadcastVideoProvider) || "zoom";
 }
 
 export function parseBroadcastVideoProviderForm(value: string | undefined): BroadcastVideoProvider {
   if (value === "zoom" || value === "custom" || value === "daily") return value;
-  return "daily";
+  return "zoom";
 }

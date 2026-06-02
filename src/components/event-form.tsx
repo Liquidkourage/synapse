@@ -4,9 +4,11 @@ import { CoverImageInput } from "@/components/cover-image-input";
 import { EventFormKindLayout } from "@/components/event-form-kind-layout";
 import { EventScheduleFields } from "@/components/event-schedule-fields";
 import Link from "next/link";
-import { EventFormVideoRoutes } from "@/components/event-form-video-routes";
+import { EventFormLegacyDaily } from "@/components/event-form-legacy-daily";
+import { EventFormZoomVideo } from "@/components/event-form-zoom-video";
 import { broadcastVideoProviderFromEvent } from "@/lib/broadcast-video-provider";
-import { liveVideoRouteFromProvider, type LiveVideoRoute } from "@/lib/live-video-route";
+import { isZoomNativeEvent } from "@/lib/zoom-meetings";
+import { isDailyNativeBroadcastUrl } from "@/lib/synapse-video";
 import { effectiveEventKind } from "@/lib/event-kind";
 import { breakoutTeamNamesFromDb, breakoutTeamNamesToFormValue } from "@/lib/breakout-teams";
 import { videoRoomModeFromEvent } from "@/lib/daily-video-mode";
@@ -14,34 +16,22 @@ import { formatDurationHhMm, formatStartForDatetimeLocal } from "@/lib/event-sch
 
 export function EventCreateForm({
   hostOptions,
-  nativeVideoAvailable,
-  autoRoomOnCreate,
   zoomOAuthConfigured,
   hostZoomConnected,
-  initialVideoRoute = "daily",
   initialCustom = false,
-  showVideoRoutePicker = true,
 }: {
   hostOptions?: { id: string; label: string }[];
-  nativeVideoAvailable: boolean;
-  autoRoomOnCreate: boolean;
   zoomOAuthConfigured: boolean;
   hostZoomConnected: boolean;
-  initialVideoRoute?: LiveVideoRoute;
   initialCustom?: boolean;
-  showVideoRoutePicker?: boolean;
 }) {
   return (
     <form action={createEvent} className="max-w-2xl space-y-4">
       <FormFields
         hostOptions={hostOptions}
-        nativeVideoAvailable={nativeVideoAvailable}
-        autoRoomOnCreate={autoRoomOnCreate}
         zoomOAuthConfigured={zoomOAuthConfigured}
         hostZoomConnected={hostZoomConnected}
-        initialVideoRoute={initialVideoRoute}
         initialCustom={initialCustom}
-        showVideoRoutePicker={showVideoRoutePicker}
       />
       <button
         type="submit"
@@ -70,8 +60,12 @@ export function EventEditForm({
 }) {
   const action = updateEvent.bind(null, event.id);
   const provider = broadcastVideoProviderFromEvent(event);
-  const editRoute = liveVideoRouteFromProvider(provider) ?? "daily";
   const editCustom = provider === "custom";
+  const legacyDaily =
+    provider === "daily" &&
+    !!event.broadcastEmbedUrl &&
+    isDailyNativeBroadcastUrl(event.broadcastEmbedUrl) &&
+    !isZoomNativeEvent(event);
 
   return (
     <form action={action} className="max-w-2xl space-y-4">
@@ -79,12 +73,10 @@ export function EventEditForm({
         eventId={event.id}
         hostOptions={hostOptions}
         nativeVideoAvailable={nativeVideoAvailable}
-        autoRoomOnCreate={autoRoomOnCreate}
         zoomOAuthConfigured={zoomOAuthConfigured}
         hostZoomConnected={hostZoomConnected}
-        initialVideoRoute={editRoute}
+        legacyDaily={legacyDaily}
         initialCustom={editCustom}
-        showVideoRoutePicker
         defaults={{
           title: event.title,
           shortDescription: event.shortDescription,
@@ -131,24 +123,20 @@ export function EventEditForm({
 function FormFields({
   eventId,
   hostOptions,
-  nativeVideoAvailable,
-  autoRoomOnCreate,
+  nativeVideoAvailable = false,
   zoomOAuthConfigured,
   hostZoomConnected,
-  initialVideoRoute = "daily",
+  legacyDaily = false,
   initialCustom = false,
-  showVideoRoutePicker = true,
   defaults,
 }: {
   eventId?: string;
   hostOptions?: { id: string; label: string }[];
-  nativeVideoAvailable: boolean;
-  autoRoomOnCreate: boolean;
+  nativeVideoAvailable?: boolean;
   zoomOAuthConfigured: boolean;
   hostZoomConnected: boolean;
-  initialVideoRoute?: LiveVideoRoute;
+  legacyDaily?: boolean;
   initialCustom?: boolean;
-  showVideoRoutePicker?: boolean;
   defaults?: Record<string, string>;
 }) {
   const d = defaults ?? {};
@@ -346,22 +334,30 @@ function FormFields({
           autoComplete="off"
         />
       </div>
-      <EventFormVideoRoutes
-        eventId={eventId}
-        initialRoute={initialVideoRoute}
-        defaults={{
-          videoRoomMode: (d.videoRoomMode as "streaming" | "open" | "breakouts") || "streaming",
-          broadcastEmbedUrl: d.broadcastEmbedUrl ?? "",
-          breakoutTeamNames: d.breakoutTeamNames ?? "",
-          broadcastHostOnlyJoin: d.broadcastHostOnlyJoin ?? "",
-        }}
-        nativeVideoAvailable={nativeVideoAvailable}
-        autoRoomOnCreate={autoRoomOnCreate}
-        zoomOAuthConfigured={zoomOAuthConfigured}
-        hostZoomConnected={hostZoomConnected}
-        showRoutePicker={showVideoRoutePicker}
-        initialCustom={initialCustom}
-      />
+      {legacyDaily && eventId ? (
+        <EventFormLegacyDaily
+          eventId={eventId}
+          nativeVideoAvailable={nativeVideoAvailable}
+          defaults={{
+            videoRoomMode: (d.videoRoomMode as "streaming" | "open" | "breakouts") || "streaming",
+            broadcastEmbedUrl: d.broadcastEmbedUrl ?? "",
+            broadcastHostOnlyJoin: d.broadcastHostOnlyJoin ?? "",
+          }}
+        />
+      ) : (
+        <EventFormZoomVideo
+          eventId={eventId}
+          defaults={{
+            videoRoomMode: (d.videoRoomMode as "streaming" | "open" | "breakouts") || "streaming",
+            broadcastEmbedUrl: d.broadcastEmbedUrl ?? "",
+            breakoutTeamNames: d.breakoutTeamNames ?? "",
+            broadcastHostOnlyJoin: d.broadcastHostOnlyJoin ?? "",
+          }}
+          zoomOAuthConfigured={zoomOAuthConfigured}
+          hostZoomConnected={hostZoomConnected}
+          initialCustom={initialCustom}
+        />
+      )}
       <div>
         <label className="block text-sm text-zinc-400">Game / tool embed URL (optional)</label>
         <p className="mt-1 text-xs text-zinc-600">

@@ -60,22 +60,10 @@ export default async function HostEventsPage({
             Zoom settings
           </Link>
           <Link
-            href="/host/events/new/daily"
-            className="rounded-xl border border-violet-500/40 px-4 py-2 text-sm text-violet-200 hover:bg-violet-950/40"
-          >
-            New (Daily)
-          </Link>
-          <Link
-            href="/host/events/new/zoom"
-            className="rounded-xl border border-sky-500/40 px-4 py-2 text-sm text-sky-200 hover:bg-sky-950/40"
-          >
-            New (Zoom)
-          </Link>
-          <Link
             href="/host/events/new"
-            className="rounded-xl bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
+            className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
           >
-            Compare routes
+            New event
           </Link>
         </div>
       </div>
