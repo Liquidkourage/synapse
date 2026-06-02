@@ -118,9 +118,9 @@ export function ZoomBreakoutHostPanel({
           )}
         </li>
         <li>
-          After breakouts open: in the Zoom toolbar open <strong className="text-zinc-300">Breakout Rooms</strong> →{" "}
-          <strong className="text-zinc-300">Broadcast</strong> → <strong className="text-zinc-300">Broadcast voice</strong>{" "}
-          (or use the Zoom desktop app if the browser menu is missing).
+          After breakouts open, Synapse tries to <strong className="text-zinc-300">start broadcast voice</strong>{" "}
+          automatically. Keep your mic unmuted in Zoom. If teams still can&apos;t hear you, use Breakout Rooms →
+          Broadcast → Broadcast voice (or the Zoom desktop app).
         </li>
         <li>When done, click Close breakouts or use Zoom&apos;s Close all rooms.</li>
       </ol>
@@ -165,8 +165,9 @@ export function ZoomBreakoutHostPanel({
       ) : null}
 
       <p className="mt-3 text-[11px] text-zinc-600">
-        Enable <strong className="text-zinc-500">Broadcast voice to breakout rooms</strong> at zoom.us → Settings →
-        Meeting → Breakout room. Without that, teams in breakouts will not hear you in the main session.
+        Synapse enables <strong className="text-zinc-500">Breakout room</strong> on your Zoom account when you connect.
+        If <strong className="text-zinc-500">Broadcast voice to breakout rooms</strong> is locked off at zoom.us → Settings
+        → Meeting, turn it on once there — Zoom does not expose that checkbox via API.
       </p>
 
       {editEventId ? (

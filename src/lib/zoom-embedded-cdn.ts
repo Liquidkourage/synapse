@@ -52,6 +52,9 @@ type ZoomClientGlobal = {
   openBreakoutRooms?: (opts: Record<string, unknown>) => void;
   closeBreakoutRooms?: (opts: Record<string, unknown>) => void;
   getBreakoutRoomList?: (opts: Record<string, unknown>) => void;
+  broadcastVoiceToBreakoutRooms?: (opts: Record<string, unknown>) => void;
+  broadcastVoiceToBO?: (opts: Record<string, unknown>) => void;
+  unmute?: (opts: Record<string, unknown>) => void;
   inMeetingServiceListener?: (event: string, handler: (...args: unknown[]) => void) => void;
   i18n?: ZoomI18n;
 };

@@ -95,12 +95,17 @@ export default async function HostZoomSettingsPage({
             >
               Zoom Marketplace → your app → Scopes
             </a>
-            , enable <code className="text-zinc-400">user:read:zak</code> and{" "}
-            <code className="text-zinc-400">user:read:token</code> (required to host from Synapse), then disconnect
-            and reconnect here.
+            , enable <code className="text-zinc-400">user:read:zak</code>,{" "}
+            <code className="text-zinc-400">user:read:token</code>,{" "}
+            <code className="text-zinc-400">user:read:settings</code>, and{" "}
+            <code className="text-zinc-400">user:update:settings</code> (breakout defaults on connect), then
+            disconnect and reconnect here.
           </li>
           <li>In Zoom web portal → Settings → Meeting, enable Breakout room.</li>
-          <li>Enable &quot;Broadcast voice to breakout rooms&quot; (Zoom 5.12+).</li>
+          <li>
+            Enable &quot;Broadcast voice to breakout rooms&quot; (Zoom 5.12+) if your account has it locked off — Synapse
+            enables Breakout room on connect but cannot toggle this sub-option via API.
+          </li>
           <li>On events, choose <strong className="text-zinc-400">Zoom (your account)</strong> and Meeting with breakout rooms.</li>
         </ul>
       </section>

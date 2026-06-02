@@ -32,9 +32,12 @@ export function getZoomMeetingSdkConfig() {
 /**
  * Must match scopes enabled on the Zoom Marketplace app.
  * Host join (ZAK): `user:read:zak` and `user:read:token` (Zoom requires the latter for GET …/token?type=zak).
+ * Breakout defaults: `user:read:settings` + `user:update:settings` (granular replacement for classic `user:write`).
  */
 export const ZOOM_OAUTH_SCOPES = [
   "user:read:user",
+  "user:read:settings",
+  "user:update:settings",
   "user:read:zak",
   "user:read:token",
   "meeting:write:meeting",

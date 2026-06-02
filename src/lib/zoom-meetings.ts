@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getZoomAccessTokenForUser } from "@/lib/zoom-tokens";
+import { ensureZoomBreakoutHostDefaults } from "@/lib/zoom-user-settings";
 
 type ZoomMeetingCreateResponse = {
   id: number | string;
@@ -106,6 +107,13 @@ export async function provisionZoomMeetingForEvent(
       ok: false,
       error: "Event host has not connected Zoom. Connect Zoom in host settings first.",
     };
+  }
+
+  if (opts.breakouts) {
+    const settings = await ensureZoomBreakoutHostDefaults(event.hostId);
+    if (!settings.ok && settings.reason === "api_error") {
+      console.warn("[zoom-meetings] breakout host defaults not applied", settings.detail);
+    }
   }
 
   const durationMinutes = Math.max(

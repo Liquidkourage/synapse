@@ -5,6 +5,7 @@ import {
   fetchZoomMe,
   saveZoomTokensForUser,
 } from "@/lib/zoom-tokens";
+import { ensureZoomBreakoutHostDefaults } from "@/lib/zoom-user-settings";
 
 function baseUrl() {
   return (process.env.AUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -44,6 +45,9 @@ export async function GET(req: Request) {
     const tokens = await exchangeZoomCodeForTokens(code);
     const me = await fetchZoomMe(tokens.access_token);
     await saveZoomTokensForUser(session.user.id, tokens, { id: me.id, email: me.email });
+    void ensureZoomBreakoutHostDefaults(session.user.id).then((r) => {
+      if (!r.ok) console.warn("[zoom-oauth] breakout defaults", r);
+    });
     return NextResponse.redirect(new URL("/host/settings/zoom?connected=1", baseUrl()));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "oauth_failed";

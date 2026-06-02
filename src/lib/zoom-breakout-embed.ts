@@ -203,6 +203,65 @@ function closeRooms(ZoomMtg: ZoomBoSdk): Promise<void> {
   });
 }
 
+/** Start host voice broadcast to all breakout rooms when the SDK exposes it (not in all web builds). */
+function startBroadcastVoiceToBreakoutRooms(ZoomMtg: ZoomBoSdk): Promise<boolean> {
+  return new Promise((resolve) => {
+    const finish = (value: boolean) => resolve(value);
+    const timer = window.setTimeout(() => finish(false), 4000);
+
+    const mtg = ZoomMtg as Record<string, unknown>;
+    const attempts: Array<{ fn: unknown; args: Record<string, unknown> }> = [
+      {
+        fn: mtg.broadcastVoiceToBreakoutRooms,
+        args: {
+          action: "start",
+          success: () => {
+            window.clearTimeout(timer);
+            finish(true);
+          },
+          error: () => {
+            window.clearTimeout(timer);
+            finish(false);
+          },
+        },
+      },
+      {
+        fn: mtg.broadcastVoiceToBO,
+        args: {
+          start: true,
+          success: () => {
+            window.clearTimeout(timer);
+            finish(true);
+          },
+          error: () => {
+            window.clearTimeout(timer);
+            finish(false);
+          },
+        },
+      },
+    ];
+
+    for (const { fn, args } of attempts) {
+      if (typeof fn !== "function") continue;
+      try {
+        (fn as (opts: Record<string, unknown>) => void)(args);
+        return;
+      } catch {
+        /* try next shape */
+      }
+    }
+    window.clearTimeout(timer);
+    finish(false);
+  });
+}
+
+async function openRoomsAndBroadcastVoice(ZoomMtg: ZoomBoSdk): Promise<{ voiceStarted: boolean }> {
+  await openRooms(ZoomMtg);
+  await new Promise((r) => window.setTimeout(r, 800));
+  const voiceStarted = await startBroadcastVoiceToBreakoutRooms(ZoomMtg);
+  return { voiceStarted };
+}
+
 async function runBreakoutAction(
   action: "create-rooms" | "open-rooms" | "close-rooms",
   names: string[],
@@ -231,8 +290,12 @@ async function runBreakoutAction(
   }
 
   if (action === "open-rooms") {
-    await openRooms(ZoomMtg);
-    ok("Breakout rooms are open — participants will join their rooms.");
+    const { voiceStarted } = await openRoomsAndBroadcastVoice(ZoomMtg);
+    ok(
+      voiceStarted
+        ? "Breakout rooms are open — broadcast voice started. Keep your mic unmuted in Zoom."
+        : "Breakout rooms are open — use Breakout Rooms → Broadcast → Broadcast voice if teams can't hear you.",
+    );
     return;
   }
 
