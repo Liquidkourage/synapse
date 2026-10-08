@@ -6,11 +6,15 @@ import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
 import { LocalDateTime } from "@/components/local-datetime";
 
 type Props = {
-  event: Event & { host: Pick<User, "name" | "email">; producer?: Pick<User, "name" | "email"> | null };
+  event: Event & {
+    host: Pick<User, "name" | "email" | "creatorSlug">;
+    producer?: Pick<User, "name" | "email"> | null;
+  };
 };
 
 export function EventCard({ event }: Props) {
   const eff = getEffectiveEventStatus(event);
+  const hostLabel = event.host.name ?? event.host.email;
   return (
     <article className="group rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 transition hover:border-violet-500/40">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -28,7 +32,14 @@ export function EventCard({ event }: Props) {
       </div>
       <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{event.shortDescription}</p>
       <p className="mt-3 text-xs text-zinc-500">
-        <LocalDateTime iso={event.startAt.toISOString()} /> · {event.host.name ?? event.host.email}
+        <LocalDateTime iso={event.startAt.toISOString()} /> ·{" "}
+        {event.host.creatorSlug ? (
+          <Link href={`/creators/${event.host.creatorSlug}`} className="hover:text-violet-300">
+            {hostLabel}
+          </Link>
+        ) : (
+          hostLabel
+        )}
       </p>
     </article>
   );

@@ -30,7 +30,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const { slug } = await params;
   const event = await prisma.event.findUnique({
     where: { slug },
-    include: { host: true, producer: true, recurrenceSeries: true },
+    include: { host: { include: { profile: true } }, producer: true, recurrenceSeries: true },
   });
   if (!event) notFound();
   if (isPodcastEvent(event)) redirect(`/podcasts/e/${slug}`);
@@ -203,9 +203,47 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                 <LocalDateTime iso={event.endAt.toISOString()} />
               </p>
               <p className="mt-1 text-xs text-zinc-500">
-                Host: {event.host.name ?? event.host.email}
+                Host:{" "}
+                {event.host.creatorSlug ? (
+                  <Link href={`/creators/${event.host.creatorSlug}`} className="text-violet-300 hover:underline">
+                    {event.host.profile?.displayName?.trim() || event.host.name || event.host.email}
+                  </Link>
+                ) : (
+                  event.host.profile?.displayName?.trim() || event.host.name || event.host.email
+                )}
                 {event.producer && <> · Producer: {event.producer.name ?? event.producer.email}</>}
               </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-xs text-zinc-500">
+              <p>
+                <strong className="text-zinc-300">How to participate:</strong> Join from this page when the show is live —
+                video, tools, and chat share one stage. A free account is your identity;{" "}
+                <Link href="/subscribe" className="text-violet-400 hover:underline">
+                  membership
+                </Link>{" "}
+                is intended for full network participation when enabled.
+              </p>
+              {event.host.creatorSlug ? (
+                <p className="mt-2">
+                  More from this host:{" "}
+                  <Link href={`/creators/${event.host.creatorSlug}`} className="text-violet-400 hover:underline">
+                    creator profile
+                  </Link>{" "}
+                  ·{" "}
+                  <Link href="/schedule" className="text-violet-400 hover:underline">
+                    full schedule
+                  </Link>
+                </p>
+              ) : (
+                <p className="mt-2">
+                  Explore the{" "}
+                  <Link href="/schedule" className="text-violet-400 hover:underline">
+                    network schedule
+                  </Link>
+                  .
+                </p>
+              )}
             </div>
 
             <EventJoinButton
@@ -270,6 +308,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               </div>
               {event.venmoHandle ? (
                 <div className="mt-3 border-t border-zinc-800/80 pt-3">
+                  <p className="mb-2 text-[11px] text-zinc-600">
+                    Optional tip link from the host — separate from Synapse membership and creator support preferences.
+                  </p>
                   <EventVenmoTipBlock handle={event.venmoHandle} compact />
                 </div>
               ) : null}

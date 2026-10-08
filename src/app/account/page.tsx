@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile-form";
 import { SupportAllocationForm } from "@/components/support-allocation-form";
 import { ensureDefaultAllocationPreference } from "@/lib/support-allocations";
-import { isMembershipGatingEnabled } from "@/lib/membership-gating";
+import { membershipPriceHeadline } from "@/lib/membership-pricing";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -46,7 +46,7 @@ export default async function AccountPage() {
         user.referralFirstTouchCreator.creatorSlug
       : null;
 
-  const gating = isMembershipGatingEnabled();
+  const price = membershipPriceHeadline();
 
   return (
     <div className="mx-auto max-w-lg space-y-8">
@@ -71,7 +71,7 @@ export default async function AccountPage() {
           <p className="mt-2">No membership yet.</p>
         )}
         <p className="mt-2 text-xs text-zinc-600">
-          Gating {gating ? "ON" : "OFF"} ·{" "}
+          Free account = identity. Paid membership ({price}) = network participation when billing is live.{" "}
           <Link href="/subscribe" className="text-violet-400 hover:underline">
             Membership info
           </Link>
@@ -114,11 +114,11 @@ export default async function AccountPage() {
           sent in this PoC.
         </p>
       </section>
-      <section className="rounded-2xl border border-amber-500/20 bg-amber-950/20 p-5 text-sm text-amber-200/90">
-        <h2 className="font-medium text-amber-100">Billing</h2>
-        <p className="mt-2 text-amber-200/80">
-          Stripe Checkout is designed (see docs) but not live. Pilot access uses administrator grants (
-          <code className="text-amber-100/80">ADMIN_GRANT</code>).
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 text-sm text-zinc-400">
+        <h2 className="font-medium text-zinc-200">Billing</h2>
+        <p className="mt-2">
+          Self-serve card checkout for {price} is not live yet. If you have pilot access, it will appear as an active
+          membership above. You can still set creator support preferences now — they are preferences, not payments.
         </p>
       </section>
     </div>

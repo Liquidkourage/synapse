@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Synapse — Live trivia, one channel at a time",
+  title: "Synapse — Don't just watch. Be part of the show.",
   description:
-    "Discover live and on-demand trivia programming. Synapse is the front door — your game runs wherever you host it.",
+    "A curated network of live interactive entertainment. One membership for shows across independent creators — trivia, music games, game shows, and more.",
 };
 
 /** App reads from the DB on most routes — skip static page data collection at build time. */

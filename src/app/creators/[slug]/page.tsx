@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LocalDateTime } from "@/components/local-datetime";
 import { eventPublicPath } from "@/lib/event-page-path";
 import { getEffectiveEventStatus, statusLabel } from "@/lib/event-status";
+import { membershipPriceHeadline } from "@/lib/membership-pricing";
 import { prisma } from "@/lib/prisma";
 
 export default async function CreatorProfilePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -31,9 +32,13 @@ export default async function CreatorProfilePage({ params }: { params: Promise<{
     where: { creatorId: creator.id, active: true },
     orderBy: { createdAt: "asc" },
   });
+  const price = membershipPriceHeadline();
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
+      <Link href="/creators" className="text-sm text-violet-400 hover:underline">
+        ← All creators
+      </Link>
       <header className="flex flex-wrap items-start gap-5">
         {creator.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -46,24 +51,47 @@ export default async function CreatorProfilePage({ params }: { params: Promise<{
         <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-wider text-violet-300/80">Creator on Synapse</p>
           <h1 className="mt-1 text-3xl font-semibold text-white">{name}</h1>
-          {bio ? <p className="mt-2 text-zinc-400">{bio}</p> : null}
+          {bio ? <p className="mt-2 text-zinc-400">{bio}</p> : (
+            <p className="mt-2 text-sm text-zinc-600">Independent entertainer on the Synapse network.</p>
+          )}
           <div className="mt-4 flex flex-wrap gap-3 text-sm">
-            <Link href="/subscribe" className="rounded-full bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-500">
-              Membership · $9.99/mo
+            <Link
+              href="/subscribe"
+              className="rounded-full bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-500"
+            >
+              Membership · {price}
+            </Link>
+            <Link
+              href="/schedule"
+              className="rounded-full border border-zinc-600 px-4 py-2 text-zinc-200 hover:border-zinc-400"
+            >
+              Network schedule
             </Link>
             {referral ? (
-              <Link href={`/r/${referral.code}`} className="rounded-full border border-zinc-600 px-4 py-2 text-zinc-200 hover:border-zinc-400">
-                Creator invite link
+              <Link
+                href={`/r/${referral.code}`}
+                className="rounded-full border border-zinc-600 px-4 py-2 text-zinc-200 hover:border-zinc-400"
+              >
+                Creator invite
               </Link>
             ) : null}
           </div>
         </div>
       </header>
 
+      <p className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-500">
+        You&apos;re on Synapse — not a standalone channel. After this creator&apos;s show, explore other hosts and
+        formats on the{" "}
+        <Link href="/schedule" className="text-violet-400 hover:underline">
+          schedule
+        </Link>
+        .
+      </p>
+
       <section className="space-y-3">
         <h2 className="text-lg font-medium text-white">Upcoming shows</h2>
         {events.length === 0 ? (
-          <p className="text-sm text-zinc-500">No upcoming published shows yet.</p>
+          <p className="text-sm text-zinc-500">No upcoming published shows yet — check the network schedule for other programming.</p>
         ) : (
           <ul className="space-y-2">
             {events.map((e) => {
@@ -76,6 +104,7 @@ export default async function CreatorProfilePage({ params }: { params: Promise<{
                   <p className="mt-1 text-xs text-zinc-500">
                     {statusLabel(eff)} · <LocalDateTime iso={e.startAt.toISOString()} />
                   </p>
+                  <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{e.shortDescription}</p>
                 </li>
               );
             })}

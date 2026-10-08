@@ -11,10 +11,14 @@ export async function getSiteSettings() {
   });
 }
 
+type EventWithHost = Event & {
+  host: { id: string; name: string | null; email: string; creatorSlug: string | null };
+  producer: { id: string; name: string | null; email: string } | null;
+  effectiveStatus: EventStatus;
+};
+
 /** Single featured live public event — site settings override, else first time-effective LIVE. */
-export async function getPublicLiveEvent(): Promise<
-  (Event & { effectiveStatus: EventStatus }) | null
-> {
+export async function getPublicLiveEvent(): Promise<EventWithHost | null> {
   const settings = await getSiteSettings();
   const now = new Date();
 
