@@ -14,7 +14,8 @@ import { breakoutTeamNamesFromDb } from "@/lib/breakout-teams";
 import { ZoomBreakoutHostPanel } from "@/components/zoom-breakout-host-panel";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
-import { getGameEmbedVisibility } from "@/lib/game-embed-access";
+import { getGameEmbedAccess } from "@/lib/membership-access";
+import { canParticipateInLive } from "@/lib/membership";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
@@ -79,11 +80,19 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
   const hasAnyToolEmbed = !!(event.embedUrl || event.secondaryEmbedUrl);
   const gameEmbed = hasAnyToolEmbed
-    ? getGameEmbedVisibility(event, eff, session)
-    : { show: false, preview: false };
-  const gameEmbedSrc = event.embedUrl && isSafeUrlForIframe(event.embedUrl) ? event.embedUrl : null;
+    ? await getGameEmbedAccess(event, eff, session)
+    : { show: false, preview: false, exposeEmbedUrl: false, membershipBlocked: false };
+  const gameEmbedSrc =
+    gameEmbed.exposeEmbedUrl && event.embedUrl && isSafeUrlForIframe(event.embedUrl) ? event.embedUrl : null;
   const secondaryEmbedSrc =
-    event.secondaryEmbedUrl && isSafeUrlForIframe(event.secondaryEmbedUrl) ? event.secondaryEmbedUrl : null;
+    gameEmbed.exposeEmbedUrl && event.secondaryEmbedUrl && isSafeUrlForIframe(event.secondaryEmbedUrl)
+      ? event.secondaryEmbedUrl
+      : null;
+
+  const participation = await canParticipateInLive(session, {
+    hostId: event.hostId,
+    producerId: event.producerId,
+  });
 
   const broadcastLabel = isZoomNativeEvent(event)
     ? "Video"
@@ -272,7 +281,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           eventSlug: event.slug,
           initialMessages: chatMessages,
           canManageAnnouncements: canPublishViewerLayout,
-          canPost: !!session?.user?.id,
+          canPost: !!session?.user?.id && participation.entitled,
         }}
         storageKey={`event-${event.slug}`}
         broadcastLabel={broadcastLabel}

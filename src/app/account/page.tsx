@@ -1,7 +1,11 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile-form";
+import { SupportAllocationForm } from "@/components/support-allocation-form";
+import { ensureDefaultAllocationPreference } from "@/lib/support-allocations";
+import { isMembershipGatingEnabled } from "@/lib/membership-gating";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -9,11 +13,40 @@ export default async function AccountPage() {
   const userId = session.user.id;
   if (!userId) redirect("/login");
 
+  await ensureDefaultAllocationPreference(userId);
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { profile: true, notificationPref: true },
+    include: {
+      profile: true,
+      notificationPref: true,
+      membership: true,
+      supportAllocationPreference: { include: { lines: true } },
+      referralFirstTouchCreator: { select: { id: true, name: true, creatorSlug: true, profile: true } },
+      referredByCreator: { select: { id: true, name: true, creatorSlug: true } },
+    },
   });
   if (!user) redirect("/login");
+
+  const creators = await prisma.user.findMany({
+    where: { creatorActive: true, creatorSlug: { not: null } },
+    select: { id: true, name: true, creatorSlug: true, profile: { select: { displayName: true } } },
+    orderBy: { creatorSlug: "asc" },
+  });
+
+  const suggestedId = user.supportAllocationPreference?.suggestedCreatorId ?? null;
+  const suggestedFromList = suggestedId ? creators.find((c) => c.id === suggestedId) : null;
+  const suggestedLabel = suggestedFromList
+    ? suggestedFromList.profile?.displayName?.trim() ||
+      suggestedFromList.name?.trim() ||
+      suggestedFromList.creatorSlug
+    : user.referralFirstTouchCreator?.id === suggestedId
+      ? user.referralFirstTouchCreator.profile?.displayName?.trim() ||
+        user.referralFirstTouchCreator.name?.trim() ||
+        user.referralFirstTouchCreator.creatorSlug
+      : null;
+
+  const gating = isMembershipGatingEnabled();
 
   return (
     <div className="mx-auto max-w-lg space-y-8">
@@ -23,6 +56,52 @@ export default async function AccountPage() {
           Role: <span className="text-violet-300">{session.user.role}</span> · {session.user.email}
         </p>
       </div>
+
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 text-sm text-zinc-400">
+        <h2 className="font-medium text-zinc-200">Membership</h2>
+        {user.membership ? (
+          <p className="mt-2">
+            Status: <strong className="text-zinc-100">{user.membership.status}</strong> · Source:{" "}
+            <strong className="text-zinc-100">{user.membership.source}</strong>
+            {user.membership.adminGrantNote ? (
+              <span className="mt-1 block text-xs text-zinc-500">Note: {user.membership.adminGrantNote}</span>
+            ) : null}
+          </p>
+        ) : (
+          <p className="mt-2">No membership yet.</p>
+        )}
+        <p className="mt-2 text-xs text-zinc-600">
+          Gating {gating ? "ON" : "OFF"} ·{" "}
+          <Link href="/subscribe" className="text-violet-400 hover:underline">
+            Membership info
+          </Link>
+        </p>
+        {user.referralFirstTouchCreator ? (
+          <p className="mt-2 text-xs text-zinc-500">
+            First-touch referral: {user.referralFirstTouchCreator.creatorSlug ?? user.referralFirstTouchCreator.name}
+            {user.referredByCreatorId
+              ? " · Permanent attribution locked after paid conversion"
+              : " · Permanent attribution pending first paid conversion"}
+          </p>
+        ) : null}
+      </section>
+
+      <SupportAllocationForm
+        creators={creators.map((c) => ({
+          id: c.id,
+          label: c.profile?.displayName?.trim() || c.name?.trim() || c.creatorSlug || c.id,
+        }))}
+        initialLines={
+          user.supportAllocationPreference?.lines.map((l) => ({
+            creatorId: l.creatorId,
+            weightBps: l.weightBps,
+          })) ?? [{ creatorId: null, weightBps: 10_000 }]
+        }
+        suggestedCreatorId={suggestedId}
+        suggestedCreatorLabel={suggestedLabel ?? null}
+        confirmed={user.supportAllocationPreference?.confirmed ?? false}
+      />
+
       <ProfileForm
         initialDisplayName={user.profile?.displayName ?? ""}
         initialBio={user.profile?.bio ?? ""}
@@ -36,9 +115,10 @@ export default async function AccountPage() {
         </p>
       </section>
       <section className="rounded-2xl border border-amber-500/20 bg-amber-950/20 p-5 text-sm text-amber-200/90">
-        <h2 className="font-medium text-amber-100">Billing (demo)</h2>
+        <h2 className="font-medium text-amber-100">Billing</h2>
         <p className="mt-2 text-amber-200/80">
-          Payments and tickets are placeholder-only. Any “subscribe” UI is labeled demo and does not charge cards.
+          Stripe Checkout is designed (see docs) but not live. Pilot access uses administrator grants (
+          <code className="text-amber-100/80">ADMIN_GRANT</code>).
         </p>
       </section>
     </div>

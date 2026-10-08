@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
+import { canParticipateInLive } from "@/lib/membership";
 import { prisma } from "@/lib/prisma";
 import { createZoomMeetingSdkSignature } from "@/lib/zoom-sdk-signature";
 import { fetchZoomHostZak, isZoomNativeEvent, zoomZakErrorMessage } from "@/lib/zoom-meetings";
@@ -31,6 +32,21 @@ export async function GET(req: Request) {
     )
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const participation = await canParticipateInLive(session, {
+    hostId: event.hostId,
+    producerId: event.producerId,
+  });
+  if (!participation.entitled) {
+    return NextResponse.json(
+      {
+        error: "Membership required",
+        reason: participation.reason,
+        gatingEnabled: participation.gatingEnabled,
+      },
+      { status: 403 },
+    );
   }
 
   const { sdkKey, configured } = getZoomMeetingSdkConfig();

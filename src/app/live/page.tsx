@@ -11,7 +11,8 @@ import { isZoomNativeEvent } from "@/lib/zoom-meetings";
 import { eventHasBroadcastVideo } from "@/lib/event-broadcast-video";
 import { getRequestHostnameForEmbeds } from "@/lib/request-site-host";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
-import { getGameEmbedVisibility } from "@/lib/game-embed-access";
+import { getGameEmbedAccess } from "@/lib/membership-access";
+import { canParticipateInLive } from "@/lib/membership";
 import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
@@ -42,13 +43,19 @@ export default async function LivePage() {
   const hasAnyToolEmbed = !!(live?.embedUrl || live?.secondaryEmbedUrl);
   const gameEmbed =
     hasAnyToolEmbed && live
-      ? getGameEmbedVisibility(live, live.effectiveStatus, session)
-      : { show: false, preview: false };
+      ? await getGameEmbedAccess(live, live.effectiveStatus, session)
+      : { show: false, preview: false, exposeEmbedUrl: false, membershipBlocked: false };
 
   const primaryEmbedSrc =
-    live?.embedUrl && isSafeUrlForIframe(live.embedUrl) ? live.embedUrl : null;
+    gameEmbed.exposeEmbedUrl && live?.embedUrl && isSafeUrlForIframe(live.embedUrl) ? live.embedUrl : null;
   const secondaryEmbedSrc =
-    live?.secondaryEmbedUrl && isSafeUrlForIframe(live.secondaryEmbedUrl) ? live.secondaryEmbedUrl : null;
+    gameEmbed.exposeEmbedUrl && live?.secondaryEmbedUrl && isSafeUrlForIframe(live.secondaryEmbedUrl)
+      ? live.secondaryEmbedUrl
+      : null;
+
+  const participation = live
+    ? await canParticipateInLive(session, { hostId: live.hostId, producerId: live.producerId })
+    : { entitled: false };
 
   const hostForEmbed = await getRequestHostnameForEmbeds();
   const broadcastEmbeds = live
@@ -174,7 +181,7 @@ export default async function LivePage() {
             eventSlug: live.slug,
             initialMessages: [...chatMessages].reverse().map((m) => toChatMessageClient(m)),
             canManageAnnouncements: canPublishViewerLayout,
-            canPost: !!session?.user?.id,
+            canPost: !!session?.user?.id && participation.entitled,
           }}
           storageKey={`live-${live.slug}`}
           broadcastLabel={broadcastLabel}

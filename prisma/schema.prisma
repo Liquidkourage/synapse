@@ -30,6 +30,31 @@ enum EventKind {
   PODCAST
 }
 
+/// Membership lifecycle (Stripe webhooks + admin grants).
+enum MembershipStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+  INCOMPLETE
+}
+
+/// How the membership was established. Paid Stripe vs founder/admin pilot grant.
+enum MembershipSource {
+  ADMIN_GRANT
+  STRIPE
+}
+
+enum SupportAllocationChangeReason {
+  USER_EDIT
+  USER_CONFIRM_SUGGESTION
+  CREATOR_DEPARTED
+  ADMIN_REBALANCE
+  SYSTEM_NORMALIZE
+  PERIOD_SNAPSHOT
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -40,6 +65,24 @@ model User {
   role          Role      @default(PLAYER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  /// Public creator identity (allocation picker, /creators/[slug], referral pages).
+  creatorSlug   String?  @unique
+  /// When false, creator is hidden from new allocations; weight moves to UNALLOCATED.
+  creatorActive Boolean  @default(false)
+
+  /// First-touch referral (cookie); never overwritten once set.
+  referralFirstTouchCreatorId String?
+  referralFirstTouchCreator   User?     @relation("ReferralFirstTouch", fields: [referralFirstTouchCreatorId], references: [id])
+  referralFirstTouchCode      String?
+  referralFirstTouchAt        DateTime?
+  usersWithFirstTouchReferral User[]    @relation("ReferralFirstTouch")
+
+  /// Permanent attribution — set once on first qualifying *paid* conversion (Stripe), not on signup alone.
+  referredByCreatorId String?
+  referredByCreator   User?   @relation("ReferralAttributed", fields: [referredByCreatorId], references: [id])
+  referralAttributedAt DateTime?
+  attributedReferrals  User[]  @relation("ReferralAttributed")
 
   profile Profile?
 
@@ -54,10 +97,18 @@ model User {
 
   notificationPref NotificationPreference?
   subscriptions    SubscriptionPlaceholder[]
+  membership       Membership?
 
   homepageBlocksCreated HomepageBlock[] @relation("HomepageBlockAuthor")
 
   eventAttendances EventAttendance[]
+
+  referralCodes              CreatorReferralCode[]
+  supportAllocationPreference SupportAllocationPreference?
+  supportAllocationChanges   SupportAllocationChange[]
+  membershipsGranted         Membership[] @relation("MembershipAdminGrants")
+  allocationLinesAsCreator   SupportAllocationLine[] @relation("AllocationLineCreator")
+  periodAllocationLines      SupportPeriodAllocationLine[]
 
   /// Host-connected Zoom (OAuth). Used to create meetings on the host's Zoom account.
   zoomAccessToken     String?
@@ -66,6 +117,126 @@ model User {
   zoomAccountId       String?
   zoomAccountEmail    String?
   zoomConnectedAt     DateTime?
+}
+
+/// One membership row per user. Source distinguishes admin pilot grants from Stripe.
+model Membership {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status MembershipStatus @default(INCOMPLETE)
+  source MembershipSource
+
+  stripeCustomerId     String?
+  stripeSubscriptionId String? @unique
+  /// Last processed Stripe event id (webhook idempotency / ordering aid).
+  stripeLastEventId    String?
+  stripeLastEventAt    DateTime?
+
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  priceCents         Int       @default(999)
+  currency           String    @default("usd")
+
+  activatedAt  DateTime?
+  canceledAt   DateTime?
+  expiredAt    DateTime?
+  pastDueSince DateTime?
+
+  adminGrantNote    String?
+  adminGrantedById  String?
+  adminGrantedBy    User?    @relation("MembershipAdminGrants", fields: [adminGrantedById], references: [id])
+  adminGrantExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([source])
+}
+
+/// Creator-specific signup / referral link codes (`/r/[code]`).
+model CreatorReferralCode {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  code      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([creatorId])
+}
+
+/// Current subscriber-directed support preference (not a liability or payout).
+model SupportAllocationPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// False until subscriber confirms (including referral preselect).
+  confirmed Boolean @default(false)
+  /// Referral-suggested creator awaiting confirmation (does not apply weights until confirmed).
+  suggestedCreatorId String?
+
+  updatedAt DateTime @updatedAt
+  lines     SupportAllocationLine[]
+}
+
+/// One line per creator (or UNALLOCATED when creatorId is null). Weights sum to 10000 bps.
+model SupportAllocationLine {
+  id           String @id @default(cuid())
+  preferenceId String
+  preference   SupportAllocationPreference @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
+
+  /// null = UNALLOCATED collective pool
+  creatorId String?
+  creator   User?   @relation("AllocationLineCreator", fields: [creatorId], references: [id])
+  weightBps Int
+
+  @@index([preferenceId])
+  @@index([creatorId])
+}
+
+model SupportAllocationChange {
+  id        String                       @id @default(cuid())
+  userId    String
+  user      User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason    SupportAllocationChangeReason
+  /// JSON: { before: [{creatorId, weightBps}], after: [...] }
+  snapshotJson String
+  createdAt DateTime                     @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// Immutable, period-scoped preference snapshot for future accounting (no dollars owed).
+model SupportPeriodSnapshot {
+  id          String    @id @default(cuid())
+  periodStart DateTime
+  periodEnd   DateTime
+  closedAt    DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+  lines       SupportPeriodAllocationLine[]
+
+  @@unique([periodStart, periodEnd])
+}
+
+model SupportPeriodAllocationLine {
+  id         String                @id @default(cuid())
+  snapshotId String
+  snapshot   SupportPeriodSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// null = UNALLOCATED
+  creatorId  String?
+  weightBps  Int
+
+  @@index([snapshotId])
+  @@index([userId])
+  @@index([creatorId])
 }
 
 model Profile {

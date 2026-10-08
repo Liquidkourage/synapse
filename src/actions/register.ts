@@ -3,6 +3,14 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendWelcomeEmail } from "@/lib/email";
+import {
+  applyFirstTouchReferralToUser,
+  readReferralCookieFromRequest,
+} from "@/lib/referral";
+import {
+  ensureDefaultAllocationPreference,
+  setReferralAllocationSuggestion,
+} from "@/lib/support-allocations";
 import { z } from "zod";
 
 const reg = z.object({
@@ -26,7 +34,7 @@ export async function registerUser(_prev: unknown, formData: FormData) {
     return { ok: false as const, error: "That email is already registered." };
   }
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       email,
       passwordHash,
@@ -36,6 +44,18 @@ export async function registerUser(_prev: unknown, formData: FormData) {
       notificationPref: { create: {} },
     },
   });
+
+  const touch = await readReferralCookieFromRequest();
+  if (touch) {
+    await applyFirstTouchReferralToUser(user.id, {
+      creatorId: touch.creatorId,
+      code: touch.code,
+    });
+    await setReferralAllocationSuggestion(user.id, touch.creatorId);
+  } else {
+    await ensureDefaultAllocationPreference(user.id);
+  }
+
   await sendWelcomeEmail(email, parsed.data.name);
   return { ok: true as const };
 }

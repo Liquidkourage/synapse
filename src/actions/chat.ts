@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { canParticipateInLive } from "@/lib/membership";
 import { prisma } from "@/lib/prisma";
 import { relaySynapseChatToTwitch } from "@/lib/twitch-send-chat";
 import { z } from "zod";
@@ -22,6 +23,15 @@ export async function postEventMessage(formData: FormData) {
   if (!parsed.success) return;
 
   const { eventId, eventSlug, body } = parsed.data;
+
+  const eventForAccess = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { hostId: true, producerId: true },
+  });
+  if (!eventForAccess) return;
+
+  const participation = await canParticipateInLive(session, eventForAccess);
+  if (!participation.entitled) return;
 
   await prisma.chatMessage.create({
     data: {

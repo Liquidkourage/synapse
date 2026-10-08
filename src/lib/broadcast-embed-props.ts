@@ -1,6 +1,7 @@
 import type { Session } from "next-auth";
 import { getBroadcastEmbedPageProps as getDailyBroadcastEmbedPageProps } from "@/lib/daily-broadcast-embed-props";
 import { canViewBroadcastEmbed } from "@/lib/broadcast-access";
+import { canParticipateInLive } from "@/lib/membership";
 import { isZoomNativeEvent } from "@/lib/zoom-meetings";
 
 type EventForBroadcast = {
@@ -30,26 +31,42 @@ export async function getBroadcastEmbedPageProps(
   hostForEmbeds: string | null,
 ): Promise<BroadcastEmbedPageProps> {
   const isHost = !!session?.user?.id && session.user.id === event.hostId;
+  const participation = await canParticipateInLive(session, {
+    hostId: event.hostId,
+    producerId: event.producerId,
+  });
 
   if (isZoomNativeEvent(event) && event.zoomMeetingNumber) {
-    const canView = canViewBroadcastEmbed(
-      {
-        hostId: event.hostId,
-        producerId: event.producerId,
-        broadcastHostOnlyJoin: event.broadcastHostOnlyJoin ?? false,
-      },
-      session,
-    );
+    const canView =
+      canViewBroadcastEmbed(
+        {
+          hostId: event.hostId,
+          producerId: event.producerId,
+          broadcastHostOnlyJoin: event.broadcastHostOnlyJoin ?? false,
+        },
+        session,
+      ) && participation.entitled;
     return {
       broadcastIframeSrc: null,
       broadcastStageIframeSrc: null,
       broadcastMeetingIframeSrc: null,
       broadcastBreakoutDual: false,
       broadcastViewerIsHost: isHost,
+      // Withhold Zoom event id so the client cannot request join credentials.
       broadcastZoomEventId: canView ? event.id : null,
     };
   }
 
   const daily = await getDailyBroadcastEmbedPageProps(event, session, hostForEmbeds);
+  if (!participation.entitled) {
+    return {
+      broadcastIframeSrc: null,
+      broadcastStageIframeSrc: null,
+      broadcastMeetingIframeSrc: null,
+      broadcastBreakoutDual: false,
+      broadcastViewerIsHost: isHost,
+      broadcastZoomEventId: null,
+    };
+  }
   return { ...daily, broadcastZoomEventId: null };
 }

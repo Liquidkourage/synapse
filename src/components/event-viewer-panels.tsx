@@ -20,7 +20,12 @@ function ToolEmbedFrame({ title, src }: { title: string; src: string }) {
   );
 }
 
-export type EventViewerPanelsGameEmbed = { show: boolean; preview: boolean };
+export type EventViewerPanelsGameEmbed = {
+  show: boolean;
+  preview: boolean;
+  /** When membership gating is on and the viewer is not entitled. */
+  membershipBlocked?: boolean;
+};
 
 type Props = {
   /** Stable key for saved panel sizes (e.g. `live-${slug}` or `event-${slug}`). */
@@ -152,6 +157,14 @@ export function EventViewerPanels({
       {hasAnyToolEmbed && gameEmbed.preview && (
         <p className="text-xs text-amber-400/90">Preview — embeds are public once this event is LIVE.</p>
       )}
+      {gameEmbed.membershipBlocked ? (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-100/90">
+          Membership required to join participation tools.{" "}
+          <a href="/subscribe" className="text-violet-300 hover:underline">
+            View membership
+          </a>
+        </p>
+      ) : null}
 
       {primaryInvalid && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-200/90">
