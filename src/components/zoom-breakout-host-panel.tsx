@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { postEventAnnouncement } from "@/actions/announcements";
+import {
+  breakoutAssignmentAnnouncementBody,
+  breakoutAssignmentHostOpenChecklist,
+} from "@/lib/breakout-assignment";
 import {
   SYNAPSE_ZOOM_BO_CHANNEL,
   isSynapseZoomBreakoutAck,
   isSynapseZoomBreakoutStatus,
   type SynapseZoomBreakoutCommand,
 } from "@/lib/zoom-breakout-messages";
+
+const AUTO_PIN_KEY = "synapse-zoom-bo-auto-pin-assignment";
 
 const BO_UI_TIMEOUT_MS = 25_000;
 
@@ -32,8 +39,39 @@ export function ZoomBreakoutHostPanel({
   teamNames: string[];
   editEventId?: string;
 }) {
+  const teams = teamNames.map((n) => n.trim()).filter(Boolean);
+  const hasTeams = teams.length > 0;
+
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [autoPinAssignment, setAutoPinAssignment] = useState(false);
+  const [pinBusy, setPinBusy] = useState(false);
+  const lastAutoPinAt = useRef(0);
+
+  useEffect(() => {
+    try {
+      setAutoPinAssignment(localStorage.getItem(AUTO_PIN_KEY) === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const pinAssignmentForViewers = useCallback(async () => {
+    if (teams.length === 0) return;
+    setPinBusy(true);
+    try {
+      const fd = new FormData();
+      fd.set("eventId", eventId);
+      fd.set("body", breakoutAssignmentAnnouncementBody(teams));
+      fd.set("pinned", "true");
+      await postEventAnnouncement(fd);
+      setStatus("Pinned team list for all viewers on Synapse.");
+    } catch {
+      setStatus("Error: Could not pin announcement.");
+    } finally {
+      setPinBusy(false);
+    }
+  }, [eventId, teams]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -44,11 +82,22 @@ export function ZoomBreakoutHostPanel({
       }
       if (!isSynapseZoomBreakoutStatus(event.data)) return;
       setBusy(null);
-      setStatus(event.data.ok ? event.data.message : `Error: ${event.data.message}`);
+      const msg = event.data.ok ? event.data.message : `Error: ${event.data.message}`;
+      setStatus(msg);
+      if (
+        event.data.ok &&
+        autoPinAssignment &&
+        teamNames.length > 0 &&
+        /breakout rooms are open/i.test(event.data.message) &&
+        Date.now() - lastAutoPinAt.current > 5000
+      ) {
+        lastAutoPinAt.current = Date.now();
+        void pinAssignmentForViewers();
+      }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [autoPinAssignment, pinAssignmentForViewers, teamNames.length]);
 
   useEffect(() => {
     if (!busy) return;
@@ -84,7 +133,7 @@ export function ZoomBreakoutHostPanel({
     [eventId, teamNames],
   );
 
-  const hasTeams = teamNames.length > 0;
+  const hostAssignmentSteps = breakoutAssignmentHostOpenChecklist();
 
   return (
     <div className="rounded-xl border border-sky-500/35 bg-sky-950/20 p-4 text-sm text-zinc-300">
@@ -94,6 +143,15 @@ export function ZoomBreakoutHostPanel({
         heard in every room, unmute in Zoom and use <strong className="text-zinc-400">Broadcast voice</strong> (see
         below).
       </p>
+
+      <div className="mt-3 rounded-lg border border-sky-800/40 bg-sky-950/30 p-2.5">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-sky-300/90">Assignment (recommended)</p>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+          <strong className="text-zinc-400">Self-select</strong> — players pick a room in Zoom that matches their team
+          name. Synapse opens breakouts with choose-your-room when the SDK allows it; if not, enable{" "}
+          <strong className="text-zinc-400">Let participants choose room</strong> in the Zoom breakout dialog.
+        </p>
+      </div>
 
       <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs leading-relaxed text-zinc-400">
         <li>Join the Zoom panel while logged in as host. Keep camera and mic on in Zoom.</li>
@@ -117,16 +175,46 @@ export function ZoomBreakoutHostPanel({
             </>
           )}
         </li>
-        <li>
-          After breakouts open, Synapse tries to <strong className="text-zinc-300">start broadcast voice</strong>{" "}
-          automatically. Keep your mic unmuted in Zoom. If teams still can&apos;t hear you, use Breakout Rooms →
-          Broadcast → Broadcast voice (or the Zoom desktop app).
-        </li>
+        {hasTeams
+          ? hostAssignmentSteps.slice(1).map((step) => (
+              <li key={step}>{step}</li>
+            ))
+          : null}
         <li>When done, click Close breakouts or use Zoom&apos;s Close all rooms.</li>
       </ol>
 
       {hasTeams ? (
-        <p className="mt-2 text-[11px] text-zinc-600">Rooms: {teamNames.join(" · ")}</p>
+        <p className="mt-2 text-[11px] text-zinc-600">Rooms: {teams.join(" · ")}</p>
+      ) : null}
+
+      {hasTeams ? (
+        <div className="mt-3 flex flex-col gap-2 border-t border-sky-800/30 pt-3">
+          <button
+            type="button"
+            disabled={pinBusy || !!busy}
+            onClick={() => void pinAssignmentForViewers()}
+            className="rounded-lg bg-violet-700/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-600 disabled:opacity-50"
+          >
+            {pinBusy ? "Pinning…" : "Pin team list for viewers"}
+          </button>
+          <label className="flex cursor-pointer items-start gap-2 text-[11px] text-zinc-500">
+            <input
+              type="checkbox"
+              checked={autoPinAssignment}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setAutoPinAssignment(on);
+                try {
+                  localStorage.setItem(AUTO_PIN_KEY, on ? "1" : "0");
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className="mt-0.5 rounded border-zinc-600"
+            />
+            <span>Auto-pin team list when breakouts open successfully</span>
+          </label>
+        </div>
       ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">

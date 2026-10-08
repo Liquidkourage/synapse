@@ -178,12 +178,17 @@ function openRooms(ZoomMtg: ZoomBoSdk): Promise<void> {
       reject(new Error("openBreakoutRooms is not available in this Zoom SDK build."));
       return;
     }
+    // Self-select: participants choose a room (not host drag-assign). SDK option names vary by build.
+    const options: Record<string, unknown> = {
+      isAutoJoinRoom: false,
+      isBackToMainSessionEnabled: true,
+      isTimerEnabled: false,
+      allowParticipantsChooseRoom: true,
+      isParticipantsChooseRoom: true,
+      participantsChooseRoom: true,
+    };
     ZoomMtg.openBreakoutRooms({
-      options: {
-        isAutoJoinRoom: true,
-        isBackToMainSessionEnabled: true,
-        isTimerEnabled: false,
-      },
+      options,
       success: () => resolve(),
       error: (err: unknown) => reject(err),
     });
@@ -293,8 +298,8 @@ async function runBreakoutAction(
     const { voiceStarted } = await openRoomsAndBroadcastVoice(ZoomMtg);
     ok(
       voiceStarted
-        ? "Breakout rooms are open — broadcast voice started. Keep your mic unmuted in Zoom."
-        : "Breakout rooms are open — use Breakout Rooms → Broadcast → Broadcast voice if teams can't hear you.",
+        ? "Breakout rooms are open (self-select) — broadcast voice started. Pin the team list for viewers if you haven't."
+        : "Breakout rooms are open (self-select) — pin the team list for viewers; use Broadcast voice if teams can't hear you.",
     );
     return;
   }

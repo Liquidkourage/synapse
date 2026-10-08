@@ -16,18 +16,28 @@ import { isSafeUrlForIframe } from "@/lib/safe-url";
 import { auth } from "@/auth";
 import { toChatMessageClient } from "@/lib/chat-message-dto";
 import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
+import { breakoutTeamNamesFromDb } from "@/lib/breakout-teams";
+import { EventBreakoutAssignment } from "@/components/event-breakout-assignment";
+import { toEventAnnouncementClient } from "@/lib/event-announcement-dto";
+import { EventAnnouncementBanner } from "@/components/event-announcement-banner";
 
 export default async function LivePage() {
   const [live, session] = await Promise.all([getPublicLiveEvent(), auth()]);
 
-  const chatMessages = live
-    ? await prisma.chatMessage.findMany({
-        where: { eventId: live.id },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-        include: { user: true },
-      })
-    : [];
+  const [chatMessages, pinnedAnnouncement] = live
+    ? await Promise.all([
+        prisma.chatMessage.findMany({
+          where: { eventId: live.id },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: { user: { select: { name: true, email: true, profile: { select: { displayName: true } } } } },
+        }),
+        prisma.eventAnnouncement.findFirst({
+          where: { eventId: live.id, pinned: true },
+          orderBy: { createdAt: "desc" },
+        }),
+      ])
+    : [[], null];
 
   const hasAnyToolEmbed = !!(live?.embedUrl || live?.secondaryEmbedUrl);
   const gameEmbed =
@@ -91,16 +101,32 @@ export default async function LivePage() {
       (session.user.role === "PRODUCER" && live.producerId === session.user.id) ||
       (session.user.role === "HOST" && session.user.id === live.hostId));
 
+  const breakoutTeams = live ? breakoutTeamNamesFromDb(live.breakoutTeamNames) : [];
+  const showBreakoutAssignment =
+    !!live &&
+    !!live.broadcastBreakoutsEnabled &&
+    isZoomNativeEvent(live) &&
+    breakoutTeams.length > 0 &&
+    !(session?.user?.id === live.hostId);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {live ? (
         <EventStageShell
           banner={
-            <div>
-              <h1 className="text-lg font-semibold text-white sm:text-xl">Live now</h1>
-              <p className="mt-0.5 text-xs text-zinc-500 sm:text-sm">
-                One spotlight on the network — stage layouts info · canvas · chat.
-              </p>
+            <div className="flex flex-col gap-3">
+              <div>
+                <h1 className="text-lg font-semibold text-white sm:text-xl">Live now</h1>
+                <p className="mt-0.5 text-xs text-zinc-500 sm:text-sm">
+                  One spotlight on the network — stage layouts info · canvas · chat.
+                </p>
+              </div>
+              {pinnedAnnouncement ? (
+                <EventAnnouncementBanner
+                  eventId={live.id}
+                  initial={toEventAnnouncementClient(pinnedAnnouncement)}
+                />
+              ) : null}
             </div>
           }
           left={
@@ -140,12 +166,15 @@ export default async function LivePage() {
                   </div>
                 ) : null}
               </div>
+              {showBreakoutAssignment ? <EventBreakoutAssignment teamNames={breakoutTeams} compact /> : null}
             </div>
           }
           chat={{
             eventId: live.id,
             eventSlug: live.slug,
             initialMessages: [...chatMessages].reverse().map((m) => toChatMessageClient(m)),
+            canManageAnnouncements: canPublishViewerLayout,
+            canPost: !!session?.user?.id,
           }}
           storageKey={`live-${live.slug}`}
           broadcastLabel={broadcastLabel}

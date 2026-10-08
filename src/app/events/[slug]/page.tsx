@@ -23,6 +23,7 @@ import { parseViewerCanvasLayoutFromDb } from "@/lib/viewer-canvas-layout-host";
 import { isPodcastEvent } from "@/lib/event-kind";
 import { DailyBreakoutsHostGuide } from "@/components/daily-breakouts-host-guide";
 import { EventAnnouncementBanner } from "@/components/event-announcement-banner";
+import { EventBreakoutAssignment } from "@/components/event-breakout-assignment";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -128,6 +129,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
     session.user.id === event.hostId &&
     isZoomNativeEvent(event);
 
+  const breakoutTeams = breakoutTeamNamesFromDb(event.breakoutTeamNames);
+  const showBreakoutAssignment =
+    !!event.broadcastBreakoutsEnabled && isZoomNativeEvent(event) && breakoutTeams.length > 0 && !showZoomBreakoutHostGuide;
+
   const [messages, attendanceCount, userAttendance, pinnedAnnouncement] = await Promise.all([
     prisma.chatMessage.findMany({
       where: { eventId: event.id },
@@ -202,12 +207,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
             />
 
             {showZoomBreakoutHostGuide ? (
-              <ZoomBreakoutHostPanel
-                eventId={event.id}
-                teamNames={breakoutTeamNamesFromDb(event.breakoutTeamNames)}
-                editEventId={event.id}
-              />
+              <ZoomBreakoutHostPanel eventId={event.id} teamNames={breakoutTeams} editEventId={event.id} />
             ) : null}
+            {showBreakoutAssignment ? <EventBreakoutAssignment teamNames={breakoutTeams} compact /> : null}
             {showDailyBreakoutHostGuide ? <DailyBreakoutsHostGuide editEventId={event.id} /> : null}
 
             {event.longDescription ? (

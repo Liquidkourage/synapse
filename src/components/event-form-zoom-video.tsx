@@ -148,8 +148,8 @@ function ZoomFields({
           Breakout team names
         </label>
         <p className="mt-1 text-xs text-zinc-600">
-          One per line. Used by <strong className="text-zinc-500">Create rooms</strong> on the event page (breakout style
-          only).
+          One per line — one Zoom room per name. Players <strong className="text-zinc-500">self-select</strong> their room
+          in Zoom when breakouts open (match the room name to their team).
         </p>
         <textarea
           id="breakoutTeamNames"
