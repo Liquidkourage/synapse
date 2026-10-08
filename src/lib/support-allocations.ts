@@ -1,13 +1,11 @@
 import type { SupportAllocationChangeReason } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
+import {
+  ALLOCATION_TOTAL_BPS,
+  type AllocationLineInput,
+} from "@/lib/support-allocation-constants";
 
-export const ALLOCATION_TOTAL_BPS = 10_000;
-
-export type AllocationLineInput = {
-  /** null / undefined = UNALLOCATED pool */
-  creatorId: string | null;
-  weightBps: number;
-};
+export { ALLOCATION_TOTAL_BPS, type AllocationLineInput };
 
 export function normalizeAllocationLines(lines: AllocationLineInput[]): AllocationLineInput[] {
   const merged = new Map<string, number>();

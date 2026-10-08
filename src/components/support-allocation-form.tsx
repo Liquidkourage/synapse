@@ -6,7 +6,7 @@ import {
   keepUnallocatedSupport,
   saveMySupportAllocations,
 } from "@/actions/allocations";
-import { ALLOCATION_TOTAL_BPS } from "@/lib/support-allocations";
+import { ALLOCATION_TOTAL_BPS } from "@/lib/support-allocation-constants";
 
 type CreatorOpt = { id: string; label: string };
 type Line = { creatorId: string | null; weightBps: number };

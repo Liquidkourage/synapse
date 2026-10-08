@@ -2,12 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { ALLOCATION_TOTAL_BPS, type AllocationLineInput } from "@/lib/support-allocation-constants";
 import {
-  ALLOCATION_TOTAL_BPS,
   confirmSuggestedCreatorAllocation,
   normalizeAllocationLines,
   saveAllocationPreference,
-  type AllocationLineInput,
 } from "@/lib/support-allocations";
 import { z } from "zod";
 
